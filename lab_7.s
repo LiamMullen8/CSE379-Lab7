@@ -1,29 +1,3 @@
-	.data
-
-	.global prompt_end
-	.global game_board
-	.global HV_state
-	.global DIR_state
-	.global piece_pos
-	.global end_prompt
-	.global END_status
-	.global SQ0
-	.global SQ1
-	.global SQ2
-	.global SQ3
-	.global SQ4
-	.global SQ5
-	.global SQ6
-	.global SQ7
-	.global SQ8
-	.global SQ9
-	.global SQ10
-	.global SQ11
-	.global SQ12
-	.global SQ13
-	.global SQ14
-	.global SQ15
-
 ; color map
 ; 40's = background color, 30's = text color
 ; cyan with white text
@@ -215,7 +189,6 @@ ptr_to_block512:	.word block512
 ptr_to_block1024:	.word block1024
 ptr_to_block2048:	.word block2048
 
-
 ;ptrs to abstraction layer
 ptr_to_SQ0: .word SQ0
 ptr_to_SQ1: .word SQ1
@@ -303,7 +276,7 @@ main_loop:
 
 	MOV pc, lr
 
-;;;----------------------------------------------------------------------------;;;
+;;;------------------------------------------------------------------------------;;;
 ;;;---------------------------INTERRUPT INTIALIZATION----------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
 uart_interrupt_init:
@@ -501,6 +474,103 @@ Timer_Handler:
  	BX lr ; Return
 
 ;;;------------------------------------------------------------------------------;;;
+
+
+;;;------------------------------------------------------------------------------;;;
+;;;----------------------------RENDER GAME BOARD---------------------------------;;;
+;;;------------------------------------------------------------------------------;;;
+
+render_game_board:
+	PUSH {R0-R11}
+
+	; Load First Row ptrs
+	LDR R0, ptr_to_SQ0
+	LDR R0, [R0]
+
+	; Solve the iteration problem by pushing SQ0-SQ15 to the stack then pop them during the iteration
+	; EXAMPLE first pop would pop SQ's ptr, then we get the value to calculate the render
+
+
+
+	;Calculate Dot location
+	LDR R1, ptr_to_game_board
+	ADD R1, R1, #0x1B ;Drop down one row
+	ADD R1, R1, #0x1 ;Moving to the top Left corner of block
+	B RGB_Compare
+RGB_block2:
+
+	;Get actual value of first row ptrs
+	LDR R0, [R0]
+	LDR R1, [R1]
+	LDR R2, [R2]
+	LDR R3, [R3]
+
+
+
+	; Compare the value to optional pow(2) number
+RGB_Compare:
+	CMP R0, #0x2
+	BEQ Render2
+
+	CMP R0, #0x4
+	BEQ Render4
+
+	CMP R0, #0x8
+	BEQ Render8
+
+	CMP R0, #0x10
+	BEQ Render16
+
+	CMP R0, #0x20
+	BEQ Render32
+
+	CMP R0, #0x40
+	BEQ Render64
+
+	CMP R0, #0x80
+	BEQ Render128
+
+	CMP R0, #0x100
+	BEQ Render256
+
+	CMP R0, #0x200
+	BEQ Render512
+
+	CMP R0, #0x400
+	BEQ Render1024
+
+	CMP R0, #0x800
+	BEQ Render2048
+
+; Rendering via string and dox value
+Render2:
+
+
+Render4:
+
+
+Render8:
+
+Render16:
+
+Render32:
+
+Render64:
+
+Render128:
+
+Render256:
+
+Render512:
+
+Render1024:
+
+Render2048:
+
+
+	POP {R0, R11}
+	MOV pc, lr
+
 ML_end:
 
 	.end
