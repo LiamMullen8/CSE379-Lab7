@@ -30,6 +30,7 @@ game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
 			.string "+-----+-----+-----+-----+", 0x0
 
 END_status:	.byte 0x00		 ; toggled when collision with wall
+PAUSED:		.byte 0x00
 ;HV_state:	.byte 0x00		 ; toggle by pressing ENTER
 ;DIR_state:	.byte 0x00		 ; toggle by pressing SW1
 ;piece_pos:	.word 0x200000FA ; track the position of the game piece
@@ -59,6 +60,7 @@ ptr_to_game_board: 	.word game_board
 ;ptr_to_HV_state:	.word HV_state
 ;ptr_to_piece_pos:	.word piece_pos
 ptr_to_end_status:	.word END_status
+ptr_to_paused:		.word PAUSED
 
 ; GPIO INTERRUPT CONFIG
 GPIOF:		.equ 0x40000000
@@ -92,10 +94,10 @@ RXIC:		.equ 0x10
 
 ; Tiva push button
 SW1:		.equ 0x10
-SW2:
-SW3:
-SW4:
-SW5:
+SW2:		.equ 0x20
+SW3:		.equ 0x40
+SW4:		.equ 0x80
+SW5:		.equ 0x100
 
 ; keyboard control keys
 ;lowerQ:		.equ 0x71
@@ -134,8 +136,7 @@ lab7: ; This is your main routine which is called from your C wrapper
 
 	LDR R0, ptr_to_game_board
 
-	MOV R0, #0x2 			; set the color to display to red
-	BL illuminate_RGB_LED 	; Runs red until an interrupt is called
+	;game starts w rgb led off
 
 main_loop:
 
@@ -369,8 +370,8 @@ UART0_Handler:
 	ORR R1, #RXIC
 	STR R1, [R0, #UARTICR]
 
-
 	LDRB R1, [R0]
+
 	CMP R1, #ENTER
 	BEQ ENTER_pressed
 
@@ -403,6 +404,22 @@ Switch_Handler:
 	LDR R1, [R0, #GPIOICR]
 	ORR R1, #SW1
 	STR R1, [R0, #GPIOICR]
+
+
+	CMP R1, #SW1
+	BEQ PAUSE_MENU
+
+	CMP R1, #SW2
+	BEQ QUIT_GAME
+
+	CMP R1, #SW3
+	BEQ RESTART_GAME
+
+	CMP R1, #SW4
+	BEQ RESUME_GAME
+
+	CMP R1, #SW5
+	BEQ SWITCH_WINNING_VAL
 
 
 	; on switch press, toggle between left/right, or , up/down
