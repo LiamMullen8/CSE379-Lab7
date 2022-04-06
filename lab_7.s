@@ -7,6 +7,23 @@
 	.global piece_pos
 	.global end_prompt
 	.global END_status
+	.global SQ0
+	.global SQ1
+	.global SQ2
+	.global SQ3
+	.global SQ4
+	.global SQ5
+	.global SQ6
+	.global SQ7
+	.global SQ8
+	.global SQ9
+	.global SQ10
+	.global SQ11
+	.global SQ12
+	.global SQ13
+	.global SQ14
+	.global SQ15
+
 
 prompt_end: .string "you lost, game over!",0
 
@@ -31,9 +48,27 @@ game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
 
 END_status:	.byte 0x00		 ; toggled when collision with wall
 PAUSED:		.byte 0x00
-;HV_state:	.byte 0x00		 ; toggle by pressing ENTER
-;DIR_state:	.byte 0x00		 ; toggle by pressing SW1
-;piece_pos:	.word 0x200000FA ; track the position of the game piece
+
+;Data corresponding to square values
+SQ0: .byte 0x00
+SQ1: .byte 0x00
+SQ2: .byte 0x00
+SQ3: .byte 0x00
+
+SQ4: .byte 0x00
+SQ5: .byte 0x00
+SQ6: .byte 0x00
+SQ7: .byte 0x00
+
+SQ8: .byte 0x00
+SQ9: .byte 0x00
+SQ10: .byte 0x00
+SQ11: .byte 0x00
+
+SQ12: .byte 0x00
+SQ13: .byte 0x00
+SQ14: .byte 0x00
+SQ15: .byte 0x00
 
  	.text
 
@@ -42,7 +77,6 @@ PAUSED:		.byte 0x00
  	.global UART0_Handler
  	.global Switch_Handler
  	.global Timer_Handler
-	.global simple_read_character
  	.global output_character
  	.global read_string
  	.global output_string
@@ -50,17 +84,34 @@ PAUSED:		.byte 0x00
  	.global GPIO_init
  	.global illuminate_RGB_LED
  	.global lab7
-	.global clear_screen
-	.global update_pos
-	.global det_in_Board
+
 
 ptr_to_game_board: 	.word game_board
-;ptr_to_prompt_end: 	.word prompt_end
-;ptr_to_DIR_state:	.word DIR_state
-;ptr_to_HV_state:	.word HV_state
-;ptr_to_piece_pos:	.word piece_pos
 ptr_to_end_status:	.word END_status
 ptr_to_paused:		.word PAUSED
+
+
+;ptrs to abstraction layer
+ptr_to_SQ0: .word SQ0
+ptr_to_SQ1: .word SQ1
+ptr_to_SQ2: .word SQ2
+ptr_to_SQ3: .word SQ3
+
+ptr_to_SQ4: .word SQ4
+ptr_to_SQ5: .word SQ5
+ptr_to_SQ6: .word SQ6
+ptr_to_SQ7: .word SQ7
+
+ptr_to_SQ8: .word SQ8
+ptr_to_SQ9: .word SQ9
+ptr_to_SQ10: .word SQ10
+ptr_to_SQ11: .word SQ11
+
+ptr_to_SQ12: .word SQ12
+ptr_to_SQ13: .word SQ13
+ptr_to_SQ14: .word SQ14
+ptr_to_SQ15: .word SQ15
+
 
 ; GPIO INTERRUPT CONFIG
 GPIOF:		.equ 0x40000000
@@ -99,29 +150,6 @@ SW3:		.equ 0x40
 SW4:		.equ 0x80
 SW5:		.equ 0x100
 
-; keyboard control keys
-;lowerQ:		.equ 0x71
-ENTER:		.equ 0x0D
-
-; game logic components
-;game_piece:	.equ 0x58	; capital X
-;VERTICAL:	.equ 0x18	; +/- this value for vertical movement in a 20x20 gameboard
-;HORIZONTAL:	.equ 0x01
-
-
-; color map
-;	40's = background color, 30's = text color
-; 2:		.string 30,"[47m__2__",0	; white
-; 4:		.string 30,"[46m__4__",0	; cyan
-; 8:		.string 30,"[45m__8__",0	; magenta
-; 16:		.string 30,"[44m_16__",0	; blue
-; 32:		.string 30,"[42m_32__",0	; green
-; 64:		.string 30,"[43m_64__",0	; yellow
-; 128:		.string 30,"[44;1m_128_",0	; bright blue
-; 256:		.string 30,"[42;1m_256_",0	; bright green
-; 512:		.string 30,"[43;1m_512_",0	; bright yellow
-; 1024:		.string 30,"[41;1m_1024",0	; bright red
-; 2048:		.string 30,"[40m_2048",0	; black
 
 ;;;------------------------------------------------------------------------------;;;
 lab7: ; This is your main routine which is called from your C wrapper
@@ -135,6 +163,7 @@ lab7: ; This is your main routine which is called from your C wrapper
 	bl timer_interrupt_init
 
 	LDR R0, ptr_to_game_board
+	BL output_string
 
 	;game starts w rgb led off
 
@@ -149,81 +178,7 @@ main_loop:
 
 	MOV pc, lr
 
-
-;;;------------------------------------------------------------------------------;;;
-;;;---------------------------------GAME LOGIC-----------------------------------;;;
-;;;------------------------------------------------------------------------------;;;
-update_pos:
-	PUSH{r0-r11}
-
-	LDR R0, ptr_to_HV_state
-	LDR R1, ptr_to_DIR_state
-	LDRB R2,[R0]
-	LDRB R3,[R1]
-	LDR R4, ptr_to_piece_pos
-	LDR R5, [R4]
-	MOV R6, #game_piece
-
-	;;--;;
-	; r0 = ptr to hv
-	; r1 = ptr to dir
-	; r2 = HV state
-	; r3 = DIR state
-	; r4 = ptr to piece pos
-	; r5 = piece pos
-	; r6 = X game piece
-	;;--;;
-
-	; store a blank in current spot
-	MOV R0, #0x20
-	STRB R0, [R5]
-
-	; check if in vertical of horizontal state
-	CMP R2, #0
-	BEQ horiz
-
-;;----------------------------------------------------------------;;
-vert:
-	CMP R3, #0
-	BEQ move_up
-	B	move_down
-
-move_up:
-	STRB R6, [R5, #VERTICAL]!	; store the game piece above pos
-	STR R5, [R4]				; update the tracked pos in memory
-	B update_pos_end
-
-move_down:
-	STRB R6, [R5, #-VERTICAL]!	; store the game piece below pos
-	STR R5, [R4]				; update the tracked pos in memory
-	B update_pos_end
-
-;;----------------------------------------------------------------;;
-horiz:
-	CMP R3, #0
-	BEQ move_left
-	B	move_right
-
-move_right:
-	STRB R6, [R5, #HORIZONTAL]! ; store the game piece right of pos
-	STR R5, [R4]				; update the tracked pos in memory
-	B update_pos_end
-
-move_left:
-	STRB R6, [R5, #-HORIZONTAL]! ; store the game piece left of pos
-	STR R5, [R4]				 ; update the tracked pos in memory
-	B update_pos_end
-
-
-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;
-update_pos_end:
-	POP {r0-r11}
-	MOV pc, lr
-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;-;
-
-
-
-;;;------------------------------------------------------------------------------;;;
+;;;----------------------------------------------------------------------------;;;
 ;;;---------------------------INTERRUPT INTIALIZATION----------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
 uart_interrupt_init:
@@ -354,7 +309,6 @@ timer_interrupt_init:
 	POP{R0-R2, lr}
 	MOV pc, lr
 
-
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------------INTERRUPT HANDLERS--------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
@@ -370,25 +324,13 @@ UART0_Handler:
 	ORR R1, #RXIC
 	STR R1, [R0, #UARTICR]
 
-	LDRB R1, [R0]
-
-	CMP R1, #ENTER
-	BEQ ENTER_pressed
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Insert Logic here
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 uart_end:
 	POP {r0-r11}
 	BX lr
-
-
-ENTER_pressed:
-	; if enter pressed, toggle between horizontal motion or vertical motion
-	; HV_state = ~HV_state		0 = horizontal, 1 = vertical
-	LDR R1, ptr_to_HV_state
-	LDRB R0, [R1]
-	EOR R0, #0x1
-	STRB R0, [R1]
-
-	B uart_end
 
 
 ;;;------------------------------------------------------------------------------;;;
@@ -405,29 +347,9 @@ Switch_Handler:
 	ORR R1, #SW1
 	STR R1, [R0, #GPIOICR]
 
-
-	CMP R1, #SW1
-	BEQ PAUSE_MENU
-
-	CMP R1, #SW2
-	BEQ QUIT_GAME
-
-	CMP R1, #SW3
-	BEQ RESTART_GAME
-
-	CMP R1, #SW4
-	BEQ RESUME_GAME
-
-	CMP R1, #SW5
-	BEQ SWITCH_WINNING_VAL
-
-
-	; on switch press, toggle between left/right, or , up/down
-	; DIR_state = ~DIR_state		0 for left/up, 1 for right/down
-	LDR R1, ptr_to_DIR_state
-	LDRB R0, [R1]
-	EOR R0, #0x1
-	STRB R0, [R1]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Insert Logic here
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 	POP {r0-r11}
@@ -445,123 +367,16 @@ Timer_Handler:
 	ORR R1, #0x1
 	STR R1, [R0, #GPTMICR]
 
-	PUSH {lr}
-
-	; calulate new position of game piece
-	BL update_pos
-	BL det_in_Board
-
-	; reprint the game board
-	BL clear_screen
-	LDR R0, ptr_to_game_board
-	BL output_string
-
-	POP {lr}
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Insert Logic here
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 	POP {r0-r11}
  	BX lr ; Return
 
-
-
-;;;------------------------------------------------------------------------------;;;
-;;;-----------------------------HELPER SUBROUTINES-------------------------------;;;
-;;;------------------------------------------------------------------------------;;;
-simple_read_character:
-	PUSH {R1-R2, lr} ; Store register lr on stack
-
-	; data register
-	MOV R1, #0xC000
-	MOVT R1, #0x4000
-
-	; load from data register
-	LDRB R2, [R1]
-	MOV R0, R2
-
- 	; Restore and return
-	POP {R1-R2, lr}
-	MOV PC,LR
-;;;------------------------------------------------------------------------------;;;
-
-det_in_Board:
-	PUSH {R0-R11}
-
-	;define the constants
-	LDR R0, ptr_to_game_board
-	LDR R1, ptr_to_piece_pos
-
-	LDR R1, [R1]
-
-	;Running Left-Right Mod
-	;r1 mod 0x18
-	MOV R4, #0x18
-	UDIV R3, R1, R4	; divide to get the dividend
-	MUL R3, R3, R4	; Multiplying the dividend to get the change value
-	SUB R3, R1, R3	; Returning the difference of the change value
-
-	;Determine left collision
-	CMP R3, #0x1
-	BEQ collision
-
-	;Determine Right collision
-	CMP R3, #0x16
-	BEQ collision
-
-	;Determine Top Collision
-	ADD R3, R0, #0x18	; add first f=row to the gameboard location
-	CMP R1, R3 			; comapre if location is bigger than first row
-	BLE collision 		; if smaller than first row break
-
-	;Determine Bottom collision
-	ADD R3, R0, #504 ; store the first address of the last
-	CMP R1, R3 		 ; compare location
-	BGT collision	 ; if bigger than last row break
-
-	;no collision detected
-	POP {R0-R11}
-	MOV pc, lr
-
-collision:
-	;exit code here
-	LDR R0, ptr_to_prompt_end
-	BL output_string
-
-	; set end status after collision
-	LDR R5, ptr_to_end_status
-	LDRB R4, [R5]
-	ORR R4, #1
-	STRB R4, [R5]
-
-	POP {R0-R11}
-	MOV pc, lr
-
-;;;------------------------------------------------------------------------------;;;
-clear_screen:
-	PUSH {R0-R11, lr}
-
-	;Clearing the screen
-	MOV R0, #0xC
-	BL output_character
-
-	POP {R0-R11, lr}
-	MOV PC,LR
-
 ;;;------------------------------------------------------------------------------;;;
 ML_end:
 
-	MOV R0, #0xA ;yellow
-	BL illuminate_RGB_LED
-
-	; on game end, disable timer, enter infinite loop
-	MOV R0, #0x0000
-	MOVT R0, #0x4003
-
-	; disable timer
-	LDR R1, [R0, #GPTMCTL]
-	BIC R1, #0x1
-	STR R1, [R0, #GPTMCTL]
-
-e_l:
-	B e_l
-
 	.end
+
