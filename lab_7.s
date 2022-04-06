@@ -203,6 +203,18 @@ ptr_to_game_board: 	.word game_board
 ptr_to_end_status:	.word END_status
 ptr_to_paused:		.word PAUSED
 
+ptr_to_block2:		.word block2
+ptr_to_block4:		.word block4
+ptr_to_block8:		.word block8
+ptr_to_block16:		.word block16
+ptr_to_block32:		.word block32
+ptr_to_block64:		.word block64
+ptr_to_block128:	.word block128
+ptr_to_block256:	.word block256
+ptr_to_block512:	.word block512
+ptr_to_block1024:	.word block1024
+ptr_to_block2048:	.word block2048
+
 
 ;ptrs to abstraction layer
 ptr_to_SQ0: .word SQ0
