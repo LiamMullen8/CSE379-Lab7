@@ -7,6 +7,12 @@
 ; next line of block and its color
 ; move cursor
 ; last line of block and its color
+;
+;	+-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
+;	|     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
+;	|  2  | |  4  | |  8  | | 16  | | 32  | | 64  | | 128 | | 256 | | 512 | |1024 | |2048 |
+;   |     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
+;	+-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
 
 block2: 	.string 27,"[46m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m  2  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
 block4: 	.string 27,"[45m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m  4  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
@@ -19,8 +25,6 @@ block256: 	.string 27,"[43;1m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m 256 ",
 block512:	.string 27,"[42;1m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m 512 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
 block1024: 	.string 27,"[41;1m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m1024 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
 block2048: 	.string 27,"[40;1m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m2048 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
-
-prompt_end: .string "you lost, game over!",0
 
 ; size of game board is 4x4 blocks, with each block being 3x5
 game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
@@ -40,6 +44,11 @@ game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
 			.string "+-----+-----+-----+-----+", 0x0
+
+LOSE_end: 	.string "You Lost, Welcome to Die!",0
+WIN_end: 	.string "You Won, Conglaturmation!",0
+SCORE:		.string "Score:   ",0
+TIME:		.string "Time:    ",0
 
 END_status:	.byte 0x00		 ; toggled when collision with wall
 PAUSED:		.byte 0x00
@@ -82,8 +91,12 @@ SQ15: .byte 0x00
 
 
 ptr_to_game_board: 	.word game_board
+ptr_to_win:		 	.word WIN_end
+ptr_to_lose:		.word LOSE_end
 ptr_to_end_status:	.word END_status
 ptr_to_paused:		.word PAUSED
+ptr_to_score:		.word SCORE
+ptr_to_time:		.word TIME
 
 ptr_to_block2:		.word block2
 ptr_to_block4:		.word block4
@@ -156,9 +169,13 @@ SW3:		.equ 0x40
 SW4:		.equ 0x80
 SW5:		.equ 0x100
 
-
 ;;;------------------------------------------------------------------------------;;;
-lab7: ; This is your main routine which is called from your C wrapper
+
+
+
+
+
+lab7:
 	PUSH {lr} ; Store lr to stack
 
 	;;; INITIALIZATION ;;;
@@ -174,15 +191,18 @@ lab7: ; This is your main routine which is called from your C wrapper
 	;game starts w rgb led off
 
 main_loop:
-
-	LDR R0, ptr_to_end_status
-	LDR R0, [R0]
-	CMP R0, #1
-	BEQ ML_end
-
 	B main_loop
 
 	MOV pc, lr
+
+
+
+
+
+
+
+
+
 
 ;;;------------------------------------------------------------------------------;;;
 ;;;---------------------------INTERRUPT INTIALIZATION----------------------------;;;
@@ -216,26 +236,27 @@ gpio_interrupt_init:
 	MOV R0, #0x5000
 	MOVT R0, #0x4002
 
+	; bit 4-8: SW1-5
+	MOV R2, #0x1F0
+
 	; edge< / level sensitive
 	LDR R1, [R0, #GPIOIS]
-	MVN R2, #SW1
-	AND R1, R2
+	BIC R1, R2
 	STR R1, [R0, #GPIOIS]
 
 	; Both / single< edge trigger
 	LDR R1, [R0, #GPIOIBE]
-	MVN R2, #SW1
-	AND R1, R2
+	BIC R1, R2
 	STR R1, [R0, #GPIOIBE]
 
 	; Rising< / Falling edge
 	LDR R1, [R0, #GPIOEV]
-	ORR R1, #SW1
+	ORR R1, R2
 	STR R1, [R0, #GPIOEV]
 
 	; mask / unmask<
 	LDR R1, [R0, #GPIOIM]
-	ORR R1, #SW1
+	ORR R1, R2
 	STR R1, [R0, #GPIOIM]
 
 	; allow GPIO port F to interrupt processor
@@ -311,9 +332,12 @@ timer_interrupt_init:
 	ORR R1, #0x1
 	STR R1, [R0, #GPTMCTL]
 
-	;;;
 	POP{R0-R2, lr}
 	MOV pc, lr
+
+
+
+
 
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------------INTERRUPT HANDLERS--------------------------------;;;
@@ -385,12 +409,22 @@ Timer_Handler:
 
 
 
+
+
+
+
+
+
+
+
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------XORSHIFT32 RANDON NUMBER GENERATOR----------------------;;;
 ;;;------------------------------------------------------------------------------;;;
+; Takes in initial arguments in R0
+; Performs xorshift32 algorithm
+; Returns resulting pseudo-random number mod 16 in R0
 XORSHIFT32:
-	; R0 = 32 bit
-	; R4 = modulus
+	PUSH{r1-r4}
 
 	; x ^= x<<13
 	LSL R1, R0, #13
@@ -405,11 +439,16 @@ XORSHIFT32:
 	EOR R1, R2, R1
 
 	; x = x%r4
+	MOV R4, #16
 	UDIV R3, R1, R4
 	MUL R3, R3, R4
 	SUB R0, R1, R3
 
-	; returned in r0
+	POP{r1-r4}
+	MOV pc, lr
+;;;------------------------------------------------------------------------------;;;
+
+
 
 
 
@@ -503,12 +542,3 @@ Render512:
 Render1024:
 
 Render2048:
-
-
-	POP {R0, R11}
-	MOV pc, lr
-
-ML_end:
-
-	.end
-
