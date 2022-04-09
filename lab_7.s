@@ -520,12 +520,11 @@ render_game_board:
 	STMDB SP!, {R0-R3}
 
 	;At this point the pointers are all loaded onto the stack
+	;Using R1 for the rows value
 
-
-	;Moving to the first dot location (pre-indent)
-	LDR R1, ptr_to_game_board
-	ADD R1, R1, #0x1B ;Drop down one row
-	ADD R1, R1, #0x1 ;Moving to the top Left corner of block
+	;Using ANSI instead
+	LDR R1, ptr_to_mov_begin
+	BL output_string
 
 	MOV R2, #0x1 ;start i
 
@@ -547,15 +546,14 @@ RGB_Loop:
 	POP {R0, R1} ;I think this should be fine
 	BEQ RGB_new_row
 
-	ADD R1, R1, #0x6	;Else we just shift over a block by adding #0x6
-	ADD R2, R2, #0x1 ; increment i
+
 	LDM SP!, {R0}
 	LDR R0, [R0]	;Set up R0 to be value of the block
 	B RGB_Compare
 
 RGB_new_row:
-	ADD R1, R1, #0x5A ; Memory difference between last column on previous row and first column on next row
-	ADD R2, R2, #0x1 ; increment i
+	LDR R1, ptr_to_new_row
+	BL output_string
 	LDM SP!, {R0}
 	LDR R0, [R0]	;Set up R0 to be value of the block
 	B RGB_Compare
@@ -596,64 +594,97 @@ RGB_Compare:
 	CMP R0, #0x800
 	BEQ Render2048
 
+	;In case there is a zero
+	MOV R0, R1 ;Move the cursor
+	BL output_string
+	B RGB_Loop
+
 ;;; Rendering via string and dox value
 ;;; R1 holds the memory address of the top left position of the block
 Render2:
-	LDR R0, ptr_to_block2
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block2 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 Render4:
-	LDR R0, ptr_to_block4
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block4 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render8:
-	LDR R0, ptr_to_block8
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block8 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render16:
-	LDR R0, ptr_to_block16
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block16 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render32:
-	LDR R0, ptr_to_block32
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block32 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render64:
-	LDR R0, ptr_to_block64
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block64 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render128:
-	LDR R0, ptr_to_block128
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block128 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render256:
-	LDR R0, ptr_to_block256
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block256 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render512:
-	LDR R0, ptr_to_block512
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block512 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render1024:
-	LDR R0, ptr_to_block1024
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block1024 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 Render2048:
-	LDR R0, ptr_to_block2048
-;	render the block based on the address in R1
+	LDR R0, ptr_to_block2048 ;print the current block
+	BL output_string
+	MOV R0, R1 ;Move the cursor
+	BL output_string
 	B RGB_Loop
 
 RGB_end:
 	POP {R0, R11}
 	MOV pc, lr
 
+
+
+;------------;
+ML_end:
+
+	.end
 
