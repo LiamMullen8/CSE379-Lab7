@@ -18,6 +18,7 @@ notIntError: .string "Error, string Not an integer",0
  	.global read_tiva_push_button
 	.global read_keypad
 	.global string2int ;Grab this from lab3
+	.global modulus
 
 ptr_to_notInt: .word notIntError
 
@@ -295,6 +296,20 @@ RS_end:
 
 	POP {R1-R2, lr}
 	mov pc, lr
+;------------------------------------------------;
+; modulus
+; Takes  R0 % R1 -> R0, R1 unchanged
+; EXAMPLE modulus input (R0: 6, R1: 4), output (R0: 2, R1: 4)
+
+modulus:
+	PUSH {R2-R11}
+
+	UDIV R3, R0, R1 ;div to get quotient
+	MUL R3, R3, R1	;Need for computing remainder
+	SUB R0, R0, R3	;the mod (remainder)
+
+	POP {R2-R11}
+	MOV pc, lr
 
 ;------------------------------------;
 ; displays a null-terminated string in PuTTy.
