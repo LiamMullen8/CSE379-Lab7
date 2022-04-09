@@ -13,7 +13,7 @@
 ; |  2  | |  4  | |  8  | | 16  | | 32  | | 64  | | 128 | | 256 | | 512 | |1024 | |2048 |
 ; |     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
 ; +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
-
+	.data
 block2: 	.string 27,"[46m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m  2  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
 block4: 	.string 27,"[45m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m  4  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
 block8: 	.string 27,"[44m",27,"[37m     ",27,"[1B", 27,"[5D",27,"[37m  8  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"0m", 0x0
@@ -88,6 +88,7 @@ SQ15: .byte 0x00
  	.global GPIO_init
  	.global illuminate_RGB_LED
  	.global lab7
+	.global modulus
 
 
 ptr_to_game_board: 	.word game_board
@@ -455,32 +456,109 @@ XORSHIFT32:
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------------RENDER GAME BOARD---------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
+;;; Basic idea, push all the pointers to the stack, then pop them one-by-one
+;;; when poped they are mapped to the correct position on game board
+;;; their value is then used to determine which block to render
 
 render_game_board:
 	PUSH {R0-R11}
 
-	; Load First Row ptrs
+	; Order of ptrs after the loading phase
+	;------Stack-------
+	; SQ15
+	; SQ14
+	; SQ13
+	; SQ12
+	; SQ11
+	; SQ10
+	; SQ9
+	; SQ8
+	; SQ7
+	; SQ6
+	; SQ5
+	; SQ4
+	; SQ3
+	; SQ2
+	; SQ1
+	; SQ0
+
+;;;---------------------Loading Phase------------------------;;;
+;;; (hint)
+	; POP is actually LDM SP! <Register List>
+	;PUSH is actually STMDB SP! <Register List>
+
+	;Load Row 4 (12,13,14,15)
 	LDR R0, ptr_to_SQ0
-	LDR R0, [R0]
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_SQ2
+	LDR R3, ptr_to_SQ3
+	;push to stack
+	STMDB SP!, {R0-R3}
 
-	; Solve the iteration problem by pushing SQ0-SQ15 to the stack then pop them during the iteration
-	; EXAMPLE first pop would pop SQ's ptr, then we get the value to calculate the render
+	;Load Row 3 (8,9,10,11)
+	LDR R0, ptr_to_SQ0
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_SQ2
+	LDR R3, ptr_to_SQ3
+	;push to stack
+	STMDB SP!, {R0-R3}
+
+	;Load Row 2 (4,5,6,7)
+	LDR R0, ptr_to_SQ0
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_SQ2
+	LDR R3, ptr_to_SQ3
+	;push to stack
+	STMDB SP!, {R0-R3}
+
+	;Load Row 1 (0,1,2,3)
+	LDR R0, ptr_to_SQ0
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_SQ2
+	LDR R3, ptr_to_SQ3
+	;push to stack
+	STMDB SP!, {R0-R3}
+
+	;At this point the pointers are all loaded onto the stack
 
 
-
-	;Calculate Dot location
+	;Moving to the first dot location (pre-indent)
 	LDR R1, ptr_to_game_board
 	ADD R1, R1, #0x1B ;Drop down one row
 	ADD R1, R1, #0x1 ;Moving to the top Left corner of block
+
+	MOV R2, #0x1 ;start i
+
+RGB_Loop:
+	; R1 ~ location to print
+	; R2 ~ counter
+
+	;calculating loop complete
+	CMP R2, #0x10
+	BEQ RGB_end
+
+	; Calculating need for indent
+	PUSH {R0, R1}
+	MOV R0, R2	;Loading i onto mod
+	MOV R1, #0x4
+	BL modulus	; i % 4
+
+	CMP R0, #0x0 ; if i % 4 == 0 then we need to indent
+	POP {R0, R1} ;I think this should be fine
+	BEQ RGB_new_row
+
+	ADD R1, R1, #0x6	;Else we just shift over a block by adding #0x6
+	ADD R2, R2, #0x1 ; increment i
+	LDM SP!, {R0}
+	LDR R0, [R0]	;Set up R0 to be value of the block
 	B RGB_Compare
-RGB_block2:
 
-	;Get actual value of first row ptrs
-	LDR R0, [R0]
-	LDR R1, [R1]
-	LDR R2, [R2]
-	LDR R3, [R3]
-
+RGB_new_row:
+	ADD R1, R1, #0x5A ; Memory difference between last column on previous row and first column on next row
+	ADD R2, R2, #0x1 ; increment i
+	LDM SP!, {R0}
+	LDR R0, [R0]	;Set up R0 to be value of the block
+	B RGB_Compare
 
 
 	; Compare the value to optional pow(2) number
@@ -518,27 +596,64 @@ RGB_Compare:
 	CMP R0, #0x800
 	BEQ Render2048
 
-; Rendering via string and dox value
+;;; Rendering via string and dox value
+;;; R1 holds the memory address of the top left position of the block
 Render2:
-
-
+	LDR R0, ptr_to_block2
+;	render the block based on the address in R1
+	B RGB_Loop
 Render4:
-
+	LDR R0, ptr_to_block4
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render8:
+	LDR R0, ptr_to_block8
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render16:
+	LDR R0, ptr_to_block16
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render32:
+	LDR R0, ptr_to_block32
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render64:
+	LDR R0, ptr_to_block64
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render128:
+	LDR R0, ptr_to_block128
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render256:
+	LDR R0, ptr_to_block256
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render512:
+	LDR R0, ptr_to_block512
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render1024:
+	LDR R0, ptr_to_block1024
+;	render the block based on the address in R1
+	B RGB_Loop
 
 Render2048:
+	LDR R0, ptr_to_block2048
+;	render the block based on the address in R1
+	B RGB_Loop
+
+RGB_end:
+	POP {R0, R11}
+	MOV pc, lr
+
+
