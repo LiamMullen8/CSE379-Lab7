@@ -6,19 +6,23 @@ notIntError: .string "Error, string Not an integer",0
 
 	.text
  	.global uart_init
- 	.global int2string ;Grab this from lab3
+ 	.global uart_interrupt_init
  	.global GPIO_init
+ 	.global gpio_interrupt_init
+ 	.global timer_interrupt_init
+ 	.global modulus
 	.global output_character
- 	.global read_character
- 	.global read_string
 	.global output_string
+ 	.global read_character
+ 	.global simple_read_character
+ 	.global read_string
  	.global read_from_push_btns
- 	.global illuminate_LEDs
- 	.global illuminate_RGB_LED
  	.global read_tiva_push_button
 	.global read_keypad
-	.global string2int ;Grab this from lab3
-	.global modulus
+ 	.global illuminate_RGB_LED
+ 	.global illuminate_LEDs
+ 	.global int2string
+	.global string2int
 
 ptr_to_notInt: .word notIntError
 
@@ -38,7 +42,7 @@ CYAN:	.equ 0xC
 WHITE: 	.equ 0xE
 
 ; UART_INIT offset values
-E_UART_CLK:		.equ 0xE608
+E_UART_CLK:			.equ 0xE608
 P_UART_CLK:			.equ 0xE618
 UART_CTRL:			.equ 0xC030
 UART_IBRD:			.equ 0xC024
@@ -53,13 +57,41 @@ U0FR: 				.equ 0x18 ; UART0 Flag Register
 TxFF: 				.equ 0x20
 RxFE: 				.equ 0x10
 
+; GPIO INTERRUPT CONFIG
+GPIOF:		.equ 0x40000000
+GPIOD:		.equ 0x08
+GPIOIS: 	.equ 0x404
+GPIOIBE: 	.equ 0x408
+GPIOEV: 	.equ 0x40C
+GPIOIM: 	.equ 0x410
+
+; UART INTERRUPT CONFIG
+UARTIM:		.equ 0x038
+UART0:		.equ 0x20
+
+; TIMER INTERRUPT CONFIG
+GPTMCFG:	.equ 0x000
+GPTMTAMR:	.equ 0x004
+RCGCTIMER:	.equ 0x604
+GPTMTAILR:	.equ 0x028
+GPTMCTL:	.equ 0x00C
+GPTMIMR:	.equ 0x018
+
+; Interrupt 0-31 Set Enable Register
+EN0: 		.equ 0x100
+
+; Receive Interrupt Mask in UART Interrupt Mask Register
+RXIM:		.equ 0x10
+
+
+
 ;--------------------------;
 ; initialize the user UART for use
 
 uart_init:
 	PUSH {r1-r3, lr}	; preserve regs on stack
 
-	MOV R2, #0x0	; clear R2 just to be sure
+	MOV R2, #0x0		; clear R2 just to be sure
 	MOVT R2, #0x400F	; base address
 
 	; Provide clock to UART0
@@ -152,65 +184,261 @@ uart_init:
 	POP {r1-r3, lr}  ; restore stack
 	MOV pc, lr
 
+
 ;---------------------------------;
 ;---------------------------------;
 ; initialize GPIO pins
 ;
 ; SW1 = F4 => input
+; RGB = F1-3 => output
+; SW2-5 = D0-3 => input
 
 GPIO_init:
      PUSH {r1-r7, lr}
 
 
-    ; enable GPIO clock for port F
     ; SYSCTL_RCGC_UARG
+	; provide clock to uart0 (done before in uart_init but redundancy is good)
     MOV R2, #0x0000
     MOVT R2, #0x400F
 
-
     MOV R3, #P_UART_CLK
 
-    LDRB R1, [R2, R3]
-    ORR R1, #0x20
-    STRB R1, [R2, R3]
+    LDR R1, [R2, R3]
+    ORR R1, #0x1
+    STR R1, [R2, R3]
 
 
     ; SYSCTL_RCGC_GPIO
+    ; enable GPIO clock for port F, D
     MOV R3, #E_UART_CLK
 
-    LDRB R1, [R2, R3]
-    ORR R1, #0x20
-    STRB R1, [R2, R3]
+    LDR R1, [R2, R3]
+    ORR R1, #0x28
+    STR R1, [R2, R3]
+
 
     ; set pin directions
     ; GPIODIR
-
     ; port F
     MOV R2, #0x5000
     MOVT R2, #0x4002
 
-    LDRB R1, [R2, #DIR]
+	; rgb output 1,2,3
+	; sw1 input 4
+    LDR R1, [R2, #DIR]
     ORR R1, #0x0E
-    STRB R1, [R2, #DIR]
-
+    BIC R1, #0x10
+    STR R1, [R2, #DIR]
 
     ; set each pin as digital i/o
-
-    ;port F
-    LDRB R1, [R2, #DEN]
+    LDR R1, [R2, #DEN]
     ORR R1, #0x1E
-    STRB R1, [R2, #DEN]
-    ; configure pullup resistor
-    LDRB R1, [R2, #PUR]
+    STR R1, [R2, #DEN]
+    ; configure pullup resistor for sw1
+    LDR R1, [R2, #PUR]
     ORR R1, #0x10
-    STRB R1, [R2, #PUR]
+    STR R1, [R2, #PUR]
+
+
+    ; port D
+    MOV R2, #0x5000
+    MOVT R2, #0x4002
+
+	; sw2-5 input D0-3
+    LDR R1, [R2, #DIR]
+    BIC R1, #0x0F
+    STR R1, [R2, #DIR]
+
+    ; set each pin as digital i/o
+    LDR R1, [R2, #DEN]
+    ORR R1, #0x0F
+    STR R1, [R2, #DEN]
+    ; configure pullup resistor
+    ;LDRB R1, [R2, #PUR]
+    ;ORR R1, #0x0F
+    ;STRB R1, [R2, #PUR]
 
     POP {r1-r7, lr}
     MOV pc, lr
 
+;;;------------------------------------------------------------------------------;;;
+;;;---------------------------INTERRUPT INTIALIZATION----------------------------;;;
+;;;------------------------------------------------------------------------------;;;
+
+uart_interrupt_init:
+
+	; UART0 base address
+	MOV R0, #0xC000
+	MOVT R0, #0x4000
+
+	; set RXIM in UARTIM
+	LDR R1, [R0, #UARTIM]
+	ORR R1, #RXIM
+	STR R1, [R0, #UARTIM]
+
+	; allow UART to interrupt processor
+	MOV R0, #0xE000
+	MOVT R0, #0xE000
+
+	; set bit 5 (uart0) in nvic
+	LDR R1, [R0, #EN0]
+	ORR R1, #UART0
+	STR R1, [R0, #EN0]
+
+	MOV pc, lr
+
+;;;------------------------------------------------------------------------------;;;
+gpio_interrupt_init:
+
+	; port F
+	MOV R0, #0x5000
+	MOVT R0, #0x4002
+
+	; port D
+	MOV R2, #0x7000
+	MOVT R2, #0x4000
+
+	; bit 4: SW1
+	MOV R3, #0x10
+	; bit 0-3; SW2-5
+	MOV R4, #0x0F
+
+	; edge< / level sensitive
+	LDR R1, [R0, #GPIOIS]
+	BIC R1, R3
+	STR R1, [R0, #GPIOIS]
+	; edge< / level sensitive
+	LDR R1, [R2, #GPIOIS]
+	BIC R1, R4
+	STR R1, [R2, #GPIOIS]
+
+
+	; Both / single< edge trigger
+	LDR R1, [R0, #GPIOIBE]
+	BIC R1, R3
+	STR R1, [R0, #GPIOIBE]
+	; Both / single< edge trigger
+	LDR R1, [R2, #GPIOIBE]
+	BIC R1, R4
+	STR R1, [R2, #GPIOIBE]
+
+
+	; Rising< / Falling edge
+	LDR R1, [R0, #GPIOEV]
+	ORR R1, R3
+	STR R1, [R0, #GPIOEV]
+	; Rising< / Falling edge
+	LDR R1, [R2, #GPIOEV]
+	ORR R1, R4
+	STR R1, [R2, #GPIOEV]
+
+
+	; mask / unmask<
+	LDR R1, [R0, #GPIOIM]
+	ORR R1, R3
+	STR R1, [R0, #GPIOIM]
+	; mask / unmask<
+	LDR R1, [R2, #GPIOIM]
+	ORR R1, R4
+	STR R1, [R2, #GPIOIM]
+
+
+	; allow GPIO port D,F to interrupt processor
+	MOV R0, #0xE000
+	MOVT R0, #0xE000
+
+	LDR R1, [R0, #EN0]
+	ORR R1, #GPIOF
+	ORR R1, #GPIOD
+	STR R1, [R0, #EN0]
+
+
+	MOV pc, lr
+
+;;;------------------------------------------------------------------------------;;;
+timer_interrupt_init:
+
+	PUSH{R0-R2, lr}
+
+	; connect clock to timer
+	MOV R0, #0xE000
+	MOVT R0, #0x400F
+
+	LDR R1, [R0, #RCGCTIMER]
+	ORR R1, #0x1
+	STR R1, [R0, #RCGCTIMER]
+
+	; common base address
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+
+	; disable timer
+	LDR R1, [R0, #GPTMCTL]
+	BIC R1, #0x1
+	STR R1, [R0, #GPTMCTL]
+
+	; put timer in 32 bit mode
+	LDR R1, [R0, #GPTMCFG]
+	BIC R1, #0x1
+	STR R1, [R0, #GPTMCFG]
+
+	; put timer in periodic mode
+	LDR R1, [R0, #GPTMTAMR]
+	BIC R1, #0x3			; safety from being in capture mode
+	ORR R1, #0x2
+	STR R1, [R0, #GPTMTAMR]
+
+	; set interval period
+	; 2ticks per clock @ 16MHz = 32MHz
+	; 32,000,000 = 0x01E84800
+	MOV R1, #0x4800
+	MOVT R1, #0x01E8
+	STR R1, [R0, #GPTMTAILR]
+
+	; enable timer to interrupt processor
+	LDR R1, [R0, #GPTMIMR]
+	ORR R1, #0x1
+	STR R1, [R0, #GPTMIMR]
+
+	; config processor to allow interruptions from timer
+	MOV R0, #0xE000
+	MOVT R0, #0xE000
+
+	LDR R1, [R0, #EN0]
+	ORR R1, R1, #(1 << 19)  ;set bit 19
+	STR R1, [R0, #EN0]
+
+	; re-enable timer
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+
+	LDR R1, [R0, #GPTMCTL]
+	ORR R1, #0x1
+	STR R1, [R0, #GPTMCTL]
+
+	POP{R0-R2, lr}
+	MOV pc, lr
+
+
+;------------------------------------------------;
+; modulus
+; Takes  R0 % R1 -> R0, R1 unchanged
+; EXAMPLE modulus input (R0: 6, R1: 4), output (R0: 2, R1: 4)
+
+modulus:
+	PUSH {R2-R11}
+
+	UDIV R3, R0, R1 ;div to get quotient
+	MUL R3, R3, R1	;Need for computing remainder
+	SUB R0, R0, R3	;the mod (remainder)
+
+	POP {R2-R11}
+	MOV pc, lr
+
+
 ;----------------------------------------------;
 ; Transmits a character to PuTTy via the UART.
-
 output_character:
 	PUSH {r1-r3, lr} ; Store register lr on stack
 
@@ -231,85 +459,6 @@ Complete:
 
 	POP {r1-r3, lr}
 	mov pc, lr
-
-
-;--------------------------------------;
-; reads and returns a character from PuTTy via the UART
-
-read_character:
-	PUSH {R1-R3, lr} ; Store register lr on stack
-
-	; data register
-	MOV R1, #0xC000
-	MOVT R1, #0x4000
-
-; while RxFE = 1: loop
-POLL:
-	LDRB R2, [R1, #U0FR]
-
-	AND R2, R2, #RxFE
-
-	CMP R2, #RxFE
-	BEQ POLL
-
-	; load from data register
-	LDRB R3, [R1]
-	MOV R0, R3
-
-
-	POP {R1-R3, lr}
-	mov pc, lr
-
-;----------------------------------------------------;
-; reads a string entered in PuTTy and stores it as a
-; null-terminated string in memory
-
-read_string:
-	PUSH {R1-R2, lr} ; Store register lr on stack
-
-	MOV R1, #0	; memory offset
-
-RS_loop:
-
-	; Read character from PuTTy/UART and store in R2
-	PUSH {R0}
-	BL read_character
-	MOV R2, R0
-	POP {R0}
-
-	; Check if Carriage Return
-	CMP R2, #13
-	BEQ RS_end
-
-	; Store char byte in memory
-	STRB R2, [R0, R1]
-
-	; Increment memory offset
-	ADD R1, R1, #0x1
-
-	B RS_loop
-
-RS_end:
-	; store NULL byte at end
-	MOV R2, #0x00
-	STRB R2, [R0, R1]
-
-	POP {R1-R2, lr}
-	mov pc, lr
-;------------------------------------------------;
-; modulus
-; Takes  R0 % R1 -> R0, R1 unchanged
-; EXAMPLE modulus input (R0: 6, R1: 4), output (R0: 2, R1: 4)
-
-modulus:
-	PUSH {R2-R11}
-
-	UDIV R3, R0, R1 ;div to get quotient
-	MUL R3, R3, R1	;Need for computing remainder
-	SUB R0, R0, R3	;the mod (remainder)
-
-	POP {R2-R11}
-	MOV pc, lr
 
 ;------------------------------------;
 ; displays a null-terminated string in PuTTy.
@@ -353,6 +502,87 @@ OS_end:
 	POP {R1-R2, lr}
 	mov pc, lr
 
+;--------------------------------------;
+; reads and returns a character from PuTTy via the UART
+
+read_character:
+	PUSH {R1-R3, lr} ; Store register lr on stack
+
+	; data register
+	MOV R1, #0xC000
+	MOVT R1, #0x4000
+
+; while RxFE = 1: loop
+POLL:
+	LDRB R2, [R1, #U0FR]
+
+	AND R2, R2, #RxFE
+
+	CMP R2, #RxFE
+	BEQ POLL
+
+	; load from data register
+	LDRB R3, [R1]
+	MOV R0, R3
+
+
+	POP {R1-R3, lr}
+	mov pc, lr
+
+;----------------------------------------------------;
+simple_read_character:
+    PUSH {R1-R2, lr} ; Store register lr on stack
+
+    ; data register
+    MOV R1, #0xC000
+    MOVT R1, #0x4000
+
+    ; load from data register
+    LDRB R2, [R1]
+    MOV R0, R2
+
+     ; Restore and return
+    POP {R1-R2, lr}
+    MOV PC,LR
+
+;----------------------------------------------------;
+; reads a string entered in PuTTy and stores it as a
+; null-terminated string in memory
+
+read_string:
+	PUSH {R1-R2, lr} ; Store register lr on stack
+
+	MOV R1, #0	; memory offset
+
+RS_loop:
+
+	; Read character from PuTTy/UART and store in R2
+	PUSH {R0}
+	BL read_character
+	MOV R2, R0
+	POP {R0}
+
+	; Check if Carriage Return
+	CMP R2, #13
+	BEQ RS_end
+
+	; Store char byte in memory
+	STRB R2, [R0, R1]
+
+	; Increment memory offset
+	ADD R1, R1, #0x1
+
+	B RS_loop
+
+RS_end:
+	; store NULL byte at end
+	MOV R2, #0x00
+	STRB R2, [R0, R1]
+
+	POP {R1-R2, lr}
+	mov pc, lr
+
+
 ;------------------------------------------;
 ; retuns 4-bit pattern of button presses in R0
 read_from_push_btns:
@@ -379,104 +609,6 @@ PB_poll:
     POP {lr}
     MOV pc, lr
 
-
-;==================================================;
-int2string:
-	PUSH {R0-R3, R10, lr} ; Store register lr on stack
-
-	MOV R2, #0	 ; memory offset
-	MOV R10, #10 ; divisor for modulo
-
-	; R2 = digit count (for memory offset)
-	PUSH {R0} ; protect R0 for digit count
-dig_count:
-	CMP R0, #0
-	BEQ next
-	ADD R2, R2, #1
-	UDIV R0, R0, R10
-	B dig_count
-
-next:
-	POP {R0} ; restore original R0
-
-	; store bytes from right to left (LSB to MSB), starting with NULL byte
-	MOV R3, #0x00
-	STRB R3, [R1, R2]
-
-i2s_iter:
-
-	CMP R0, #0
-	BEQ i2s_end
-
-	; isolate lowest digit
-	UDIV R3, R0, R10
-	MUL R3, R3, R10
-	SUB R3, R0, R3
-
-	; convert from integer to ASCII hex
-	ADD R3, R3, #0x30
-
-	; decrement offset
-	SUB R2, R2, #1
-
-	; store ASCII char in memory
-	STRB R3, [R1, R2]
-
-	; shift to right to get next digit
-	UDIV R0, R0, R10
-
-	B i2s_iter
-
-i2s_end:
-	; restore stack
-	POP {R0-R3, R10, lr}
-	mov pc, lr
-
-
-;-----------------------------------------;
-; r0 between 0-F
-; 4 bit pattern indicates which LEDs to light
-
-illuminate_LEDs:
- 	PUSH {lr} ; Store register lr on stack
-
- 	; port B
- 	MOV R1, #0x5000
- 	MOVT R1, #0x4000
-
-	MOV R0, #0xC
- 	STRB R0, [R1, #DATA]
-
- 	POP {lr}
- 	MOV pc, lr
-
-
-;------------------------------------------;
-; RGB LED colors
-; The color to be displayed is passed into R0.
-;
-; RED		0x2
-; BLUE		0x4
-; PURPLE	0x6
-; GREEN		0x8
-; YELLOW	0xA
-; CYAN		0xC
-; WHITE		0xE
-
-illuminate_RGB_LED:
- 	PUSH {lr}
-
-	; port F
-	MOV R1, #0x5000
-	MOVT R1, #0x4002
-
-	; store color in data section of port
-	STRB R0, [R1, #DATA]
-
- 	POP {lr}
- 	MOV pc, lr
-
-
 ;---------------------------------------------;
 ; reads the value from switch 1 (SW1) on the
 ; Tiva board to determine if the button is being pressed
@@ -496,7 +628,6 @@ read_tiva_push_button:
 
  	POP {lr}
  	MOV pc, lr
-
 
 ;------------------------------------------------;
 ; reads a keypress on the keypad, and returns the value
@@ -641,6 +772,107 @@ RK_A_A5:
 RK_end:
      POP {R1-R3, lr}
      MOV pc, lr
+
+
+;-----------------------------------------;
+; RGB LED colors
+; The color to be displayed is passed into R0.
+;
+; RED		0x2
+; BLUE		0x4
+; PURPLE	0x6
+; GREEN		0x8
+; YELLOW	0xA
+; CYAN		0xC
+; WHITE		0xE
+
+illuminate_RGB_LED:
+ 	PUSH {lr}
+
+	; port F
+	MOV R1, #0x5000
+	MOVT R1, #0x4002
+
+	; store color in data section of port
+	STRB R0, [R1, #DATA]
+
+ 	POP {lr}
+ 	MOV pc, lr
+
+;-----------------------------------------;
+; r0 between 0-F
+; 4 bit pattern indicates which LEDs to light
+
+illuminate_LEDs:
+ 	PUSH {lr} ; Store register lr on stack
+
+ 	; port B
+ 	MOV R1, #0x5000
+ 	MOVT R1, #0x4000
+
+	MOV R0, #0xC
+ 	STRB R0, [R1, #DATA]
+
+ 	POP {lr}
+ 	MOV pc, lr
+
+
+
+
+
+
+
+;==================================================;
+int2string:
+	PUSH {R0-R3, R10, lr} ; Store register lr on stack
+
+	MOV R2, #0	 ; memory offset
+	MOV R10, #10 ; divisor for modulo
+
+	; R2 = digit count (for memory offset)
+	PUSH {R0} ; protect R0 for digit count
+dig_count:
+	CMP R0, #0
+	BEQ next
+	ADD R2, R2, #1
+	UDIV R0, R0, R10
+	B dig_count
+
+next:
+	POP {R0} ; restore original R0
+
+	; store bytes from right to left (LSB to MSB), starting with NULL byte
+	MOV R3, #0x00
+	STRB R3, [R1, R2]
+
+i2s_iter:
+
+	CMP R0, #0
+	BEQ i2s_end
+
+	; isolate lowest digit
+	UDIV R3, R0, R10
+	MUL R3, R3, R10
+	SUB R3, R0, R3
+
+	; convert from integer to ASCII hex
+	ADD R3, R3, #0x30
+
+	; decrement offset
+	SUB R2, R2, #1
+
+	; store ASCII char in memory
+	STRB R3, [R1, R2]
+
+	; shift to right to get next digit
+	UDIV R0, R0, R10
+
+	B i2s_iter
+
+i2s_end:
+	; restore stack
+	POP {R0-R3, R10, lr}
+	mov pc, lr
 
 ;------------------------------------------------;
 ; string2int
