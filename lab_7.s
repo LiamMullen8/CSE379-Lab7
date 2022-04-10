@@ -36,6 +36,8 @@
 	.global PAUSED
 	.global WIN_BLOCK
 	.global position
+	.global pause_menu
+	.global start_menu
 
 
 block2: 	.string 27,"[46m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  2  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
@@ -68,6 +70,43 @@ game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
 			.string "+-----+-----+-----+-----+", 0x0
+
+
+start_menu:	  .string 27,"[5;1f", 27,"[45m",27,"[37;1m+==============================+",0xA,0xD
+		  							.string 27,"[37;1m+       WELCOME TO 2048        +",0xA,0xD
+									.string 27,"[37;1m+                              +",0xA,0xD
+									.string 27,"[37;1m+  SW1 - START GAME            +",0xA,0xD
+									.string 27,"[37;1m+                              +",0xA,0xD
+									.string 27,"[37;1m+  HOW TO PLAY:                +",0xA,0xD
+									.string 27,"[37;1m+  USE W,A,S,D TO SLIDE BLOCKS +",0xA,0xD
+									.string 27,"[37;1m+  COMBINE EQUAL BLOCKS        +",0xA,0xD
+									.string 27,"[37;1m+                              +",0xA,0xD
+									.string 27,"[37;1m+  made by Liam Mullen         +",0xA,0xD
+									.string 27,"[37;1m+          Marcos DeLaOsaCruz  +",0xA,0xD
+									.string 27,"[37;1m+                              +",0xA,0xD
+									.string 27,"[37;1m+          CSE379 Spring 2022  +",0xA,0xD
+									.string 27,"[37;1m+==============================+",27, "[0m", 0
+
+pause_menu:	   .string 27,"[5;1f",27,"[45m",27,"[37;1m+==============================+", 0xA,0xD
+									.string	27,"[37;1m+         GAME PAUSED          +", 0xA,0xD
+									.string	27,"[37;1m+                              +", 0xA,0xD
+									.string	27,"[37;1m+  SW2 - QUIT GAME             +", 0xA,0xD
+									.string	27,"[37;1m+  SW3 - RESTART GAME          +", 0xA,0xD
+									.string	27,"[37;1m+  SW4 - RESUME GAME           +", 0xA,0xD
+									.string	27,"[37;1m+  SW5 - CHANGE WIN BLOCK      +", 0xA,0xD
+									.string	27,"[37;1m+                              +", 0xA,0xD
+									.string	27,"[37;1m+==============================+",27,"[0m",0
+
+win_block_menu:.string 27,"[5;1f",27,"[45m",27,"[37;1m+==============================+",0xA,0xD
+									.string	27,"[37;1m+       CHANGE WIN BLOCK       +",0xA,0xD
+									.string	27,"[37;1m+                              +",0xA,0xD
+									.string	27,"[37;1m+  SW2 - 2048                  +",0xA,0xD
+									.string	27,"[37;1m+  SW3 - 1024                  +",0xA,0xD
+									.string	27,"[37;1m+  SW4 - 512                   +",0xA,0xD
+									.string	27,"[37;1m+  SW5 - 256                   +",0xA,0xD
+									.string	27,"[37;1m+                              +",0xA,0xD
+									.string	27,"[37;1m+==============================+",27,"[0m",0
+
 
 position:	.string 27, "[3;2f",0
 clear_screen: .string 27,"[2J",27,"[1;1f",0
@@ -131,6 +170,11 @@ WIN_BLOCK: .half 2048
 	.global XORSHIFT32
 
  	.global lab7
+
+ptr_to_pause_menu:		.word pause_menu
+ptr_to_start_menu:		.word start_menu
+ptr_to_change_win_menu:	.word win_block_menu
+
 
 ptr_to_clear_screen:	.word clear_screen
 ptr_to_position		.word position
@@ -215,14 +259,6 @@ lab7:
 	bl gpio_interrupt_init
 	bl timer_interrupt_init
 
-
-	MOV R0, #0x1D62
-	MOVT R0, #0x3A5B
-
-	BL random1_16
-
-	MOV pc,lr
-
 	;; clear terminal display
 	LDR R0, ptr_to_clear_screen
 	BL output_string
@@ -238,6 +274,13 @@ lab7:
 
 	LDR R0, ptr_to_block2
 	BL output_string
+
+	LDR R0, ptr_to_start_menu
+	BL output_string
+
+lo:
+	b lo
+
 
 	MOV pc, lr
 
@@ -274,7 +317,7 @@ main_loop:
 ;;;----------------------------INTERRUPT HANDLERS--------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
 UART0_Handler:
-	PUSH {r0-r11}
+	PUSH {r0-r11, lr}
 
 	; UART data register
 	MOV R0, #0xC000
@@ -314,7 +357,7 @@ D_pressed:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 uart_end:
-	POP {r0-r11}
+	POP {r0-r11, lr}
 	BX lr
 
 
@@ -322,7 +365,7 @@ uart_end:
 ;;;------------------------------------------------------------------------------;;;
 Switch_Handler:
 
-	PUSH {r0-r11}
+	PUSH {r0-r11, lr}
 
 	;;;-------------------------------------------------------------;;;
 	; Clear the Interrupt via the GPIO Interrupt Clear Register
@@ -353,16 +396,16 @@ Switch_Handler:
 	BEQ SW1_pressed
 
 	;check pause status for sw2-5
-	LDR R1, ptr_to_paused
-	LDRB R0, [R1]
-	CMP R0, #0x0	; if playing, button has no effect
-	BEQ switch_end
+	;LDR R1, ptr_to_paused
+	;LDRB R0, [R1]
+	;CMP R0, #0x0	; if playing, button has no effect
+	;BEQ switch_end
 
 	;check which menu (std pause, change win val)
 	;LDR R1, ptr_to_menu
-	LDRB R0, [R1]
-	CMP R0, #0x0	; if playing, button has no effect
-	BEQ switch_end
+	;LDRB R0, [R1]
+	;CMP R0, #0x0	; if playing, button has no effect
+	;BEQ switch_end
 
 	BL read_from_push_btns
 	CMP R0, #0x1
@@ -378,22 +421,26 @@ Switch_Handler:
 SW1_pressed:
 
 	;pause status
-	LDR R1, ptr_to_paused
-	LDRB R0, [R1]
-	CMP R0, #0x0
-	BNE switch_end
-	MOV R0, #0x1
-	STRB R0, [R1]
+	;LDR R1, ptr_to_paused
+	;LDRB R0, [R1]
+	;CMP R0, #0x0
+	;BNE switch_end
+	;MOV R0, #0x1
+	;STRB R0, [R1]
 
 	; disable timer
 
 	; display pause menu
+	LDR R0, ptr_to_pause_menu
+	BL output_string
 
+	LDR R0, ptr_to_change_win_menu
+	BL output_string
 
 	;;;; if in change win val menu ;;;;
-	LDR R1, ptr_to_win_block
-	MOV R0, #256
-	STRH R0, [R1]
+	;LDR R1, ptr_to_win_block
+	;MOV R0, #256
+	;STRH R0, [R1]
 
 	B switch_end
 
@@ -477,6 +524,8 @@ SW5_pressed:
 	; display new menu with sw2-5 options for win block
 
 	; display pause menu
+	LDR R0, ptr_to_change_win_menu
+	BL output_string
 
 	;;;; if in change win val menu ;;;;
 	LDR R1, ptr_to_win_block
@@ -487,7 +536,7 @@ SW5_pressed:
 
 
 switch_end:
-	POP {r0-r11}
+	POP {r0-r11, lr}
  	BX lr ; Return
 
 
@@ -501,7 +550,7 @@ switch_end:
 
 ;;;------------------------------------------------------------------------------;;;
 Timer_Handler:
-	PUSH {r0-r11}
+	PUSH {r0-r11, lr}
 
 	MOV R0, #0x0000
 	MOVT R0, #0x4003
@@ -524,7 +573,7 @@ Timer_Handler:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 timer_end:
-	POP {r0-r11}
+	POP {r0-r11, lr}
  	BX lr ; Return
 
 ;;;------------------------------------------------------------------------------;;;
@@ -574,7 +623,7 @@ random1_16:
 ;;; their value is then used to determine which block to render
 
 render_game_board:
-	PUSH {R0-R11}
+	PUSH {R0-R11, lr}
 
 	; Order of ptrs after the loading phase
 	;------Stack-------
@@ -791,7 +840,7 @@ Render2048:
 	B RGB_Loop
 
 RGB_end:
-	POP {R0, R11}
+	POP {R0, R11, lr}
 	MOV pc, lr
 
 
