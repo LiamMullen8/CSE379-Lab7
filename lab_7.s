@@ -28,13 +28,14 @@
 	.global game_board
 	.global LOSE_end
 	.global WIN_end
-	.global SCORE_prompt
+	.global TIMESCORE_prompt
 	.global SCORE
-	.global TIME_prompt
+	;.global TIME_prompt
 	.global TIME
 	.global END_status
 	.global PAUSED
 	.global WIN_BLOCK
+	.global position
 
 
 block2: 	.string 27,"[46m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  2  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
@@ -68,11 +69,12 @@ game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
 			.string "+-----+-----+-----+-----+", 0x0
 
+position:	.string 27, "[3;2f",0
+clear_screen: .string 27,"[2J",27,"[1;1f",0
 
 LOSE_end: 	  .string "You Lost, Welcome to Die!",0
 WIN_end: 	  .string "You Won, Conglaturmation!",0
-SCORE_prompt: .string "Score:   ",0
-TIME_prompt:  .string "Time:    ",0
+TIMESCORE_prompt: .string 27,"[1;1f",27,"[37mTime: ",27,"[1;17f",27,"[37mScore: ",27,"[2;1f",0
 
 SCORE:		.word 0x00000000
 TIME:		.word 0x00000000
@@ -123,19 +125,23 @@ WIN_BLOCK: .half 2048
  	.global read_tiva_push_button	; read sw1
  	.global output_character
  	.global output_string
+ 	.global int2string				; to print current score and time
  	.global illuminate_RGB_LED
 	.global modulus
+	.global XORSHIFT32
 
  	.global lab7
 
+ptr_to_clear_screen:	.word clear_screen
+ptr_to_position		.word position
 ptr_to_game_board:		.word game_board
 ptr_to_win:				.word WIN_end
 ptr_to_lose:			.word LOSE_end
 ptr_to_end_status:		.word END_status
 ptr_to_paused:			.word PAUSED
-ptr_to_score_prompt:	.word SCORE_prompt
+ptr_to_timescore_prompt:	.word TIMESCORE_prompt
 ptr_to_score:			.word SCORE
-ptr_to_time_prompt:		.word TIME_prompt
+;ptr_to_time_prompt:		.word TIME_prompt
 ptr_to_time:			.word TIME
 
 ptr_to_block2:			.word block2
@@ -210,8 +216,32 @@ lab7:
 	bl timer_interrupt_init
 
 
+	MOV R0, #0x1D62
+	MOVT R0, #0x3A5B
+
+	BL random1_16
+
+	MOV pc,lr
+
+	;; clear terminal display
+	LDR R0, ptr_to_clear_screen
+	BL output_string
+
+	LDR R0, ptr_to_timescore_prompt
+	BL output_string
+
+	LDR R0, ptr_to_game_board
+	BL output_string
+
+	LDR R0, ptr_to_position
+	BL output_string
+
 	LDR R0, ptr_to_block2
 	BL output_string
+
+	MOV pc, lr
+
+
 	LDR R0, ptr_to_block4
 	BL output_string
 	LDR R0, ptr_to_block8
@@ -232,10 +262,6 @@ lab7:
 	BL output_string
 	LDR R0, ptr_to_block2048
 	BL output_string
-
-	LDR R0, ptr_to_game_board
-	BL output_string
-
 
 main_loop:
 	B main_loop
@@ -320,12 +346,23 @@ Switch_Handler:
 	ORR R1, #SW5
 	STR R1, [R0, #GPIOICR]
 	;;;-------------------------------------------------------------;;;
-
 	; check which switch was pressed
 
 	BL read_tiva_push_button
 	CMP R0, #1
 	BEQ SW1_pressed
+
+	;check pause status for sw2-5
+	LDR R1, ptr_to_paused
+	LDRB R0, [R1]
+	CMP R0, #0x0	; if playing, button has no effect
+	BEQ switch_end
+
+	;check which menu (std pause, change win val)
+	;LDR R1, ptr_to_menu
+	LDRB R0, [R1]
+	CMP R0, #0x0	; if playing, button has no effect
+	BEQ switch_end
 
 	BL read_from_push_btns
 	CMP R0, #0x1
@@ -339,23 +376,114 @@ Switch_Handler:
 
 ; Pauses the game, if already paused, this will have no effect
 SW1_pressed:
+
+	;pause status
+	LDR R1, ptr_to_paused
+	LDRB R0, [R1]
+	CMP R0, #0x0
+	BNE switch_end
+	MOV R0, #0x1
+	STRB R0, [R1]
+
+	; disable timer
+
+	; display pause menu
+
+
+	;;;; if in change win val menu ;;;;
+	LDR R1, ptr_to_win_block
+	MOV R0, #256
+	STRH R0, [R1]
+
 	B switch_end
 
 ; if paused, quit game
 SW2_pressed:
+
+	;check pause status
+;	LDR R1, ptr_to_paused
+;	LDRB R0, [R1]
+;	CMP R0, #0x0	; if playing, button has no effect
+;	BEQ switch_end
+
+	;;;; if in change win val menu ;;;;
+	LDR R1, ptr_to_win_block
+	MOV R0, #2048
+	STRH R0, [R1]
+	; redisplay pause menu
+
+
+	; else, quit/end the game
+
+	; new timer
+	; new score
+	; display start menu
+
 	B switch_end
 
 ; if paused, restart game
 SW3_pressed:
+
+	;check pause status
+	LDR R1, ptr_to_paused
+	LDRB R0, [R1]
+	CMP R0, #0x0	; if playing, button has no effect
+	BEQ switch_end
+
+	; new board
+	; new timer
+	; new score
+	; keep winning block value
+
+	;;;; if in change win val menu ;;;;
+	LDR R1, ptr_to_win_block
+	MOV R0, #1024
+	STRH R0, [R1]
+	; redisplay pause menu
+
 	B switch_end
 
 ; if paused, resume game
 SW4_pressed:
+
+	;check pause status
+	LDR R1, ptr_to_paused
+	LDRB R0, [R1]
+	CMP R0, #0x0
+	BEQ switch_end
+
+	;unpause
+	MOV R0, #0x0
+	STRB R0, [R1]
+
+	; reenable timer
+
+
+
+	;;;; if in change win val menu ;;;;
+	LDR R1, ptr_to_win_block
+	MOV R0, #512
+	STRH R0, [R1]
+
+	; redisplay pause menu
+
 	B switch_end
+
 
 ; if paused, change win number
 SW5_pressed:
 	B switch_end
+
+	; display new menu with sw2-5 options for win block
+
+	; display pause menu
+
+	;;;; if in change win val menu ;;;;
+	LDR R1, ptr_to_win_block
+	MOV R0, #256
+	STRH R0, [R1]
+
+	; redisplay pause menu
 
 
 switch_end:
@@ -412,33 +540,27 @@ timer_end:
 
 
 ;;;------------------------------------------------------------------------------;;;
-;;;----------------------XORSHIFT32 RANDON NUMBER GENERATOR----------------------;;;
+;;;----------------------------RANDON NUMBER GENERATOR---------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
 ; Takes in initial arguments in R0
-; Performs xorshift32 algorithm
 ; Returns resulting pseudo-random number mod 16 in R0
-XORSHIFT32:
-	PUSH{r1-r4}
+random1_16:
+	PUSH{r1-r4, lr}
 
-	; x ^= x<<13
-	LSL R1, R0, #13
-	EOR R1, R0, R1
+	; x ^= x rot> 13
+	ROR R1, R0, #13
+	EOR R1, R0
 
 	; x ^= x>>17
 	LSR R2, R1, #17
-	EOR R2, R1, R2
+	EOR R2, R1
 
-	; x ^= x<<5
-	LSL R1, R2, #5
-	EOR R1, R2, R1
+	; x = x%r1
+	MOV R0, R2
+	MOV R1, #16
+	BL modulus
 
-	; x = x%r4
-	MOV R4, #16
-	UDIV R3, R1, R4
-	MUL R3, R3, R4
-	SUB R0, R1, R3
-
-	POP{r1-r4}
+	POP{r1-r4, lr}
 	MOV pc, lr
 ;;;------------------------------------------------------------------------------;;;
 

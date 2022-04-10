@@ -492,12 +492,12 @@ OS_loop:
 OS_end:
 
 	; print newline
-	PUSH {R0}
-	MOV R0, #0xA
-	BL output_character
-	MOV R0, #0xD
-	BL output_character
-	POP {R0}
+	;PUSH {R0}
+	;MOV R0, #0xA
+	;BL output_character
+	;MOV R0, #0xD
+	;BL output_character
+	;POP {R0}
 
 	POP {R1-R2, lr}
 	mov pc, lr
