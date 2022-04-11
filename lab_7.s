@@ -107,8 +107,27 @@ win_block_menu:.string 27,"[5;1f",27,"[45m",27,"[37;1m+=========================
 									.string	27,"[37;1m+                              +",0xA,0xD
 									.string	27,"[37;1m+==============================+",27,"[0m",0
 
-
+;Cursor Movements
 position:	.string 27, "[3;2f",0
+position_SQ1:	.string 27, "[3;8f",0
+position_SQ2:	.string 27, "[3;14f",0
+position_SQ3:	.string 27, "[3,22f",0
+
+position_SQ4:	.string 27, "[7;2f",0
+position_SQ5:	.string 27, "[7;8f",0
+position_SQ6:	.string 27, "[7;14f",0
+position_SQ7:	.string 27, "[7;20f",0
+
+position_SQ8:	.string 27, "[11;2f",0
+position_SQ9:	.string 27, "[11;8f",0
+position_SQ10:	.string 27, "[11;14f",0
+position_SQ11:	.string 27, "[11;20f",0
+
+position_SQ12:	.string 27, "[15;2f",0
+position_SQ13:	.string 27, "[15;8f",0
+position_SQ14:	.string 27, "[15;14f",0
+position_SQ15:	.string 27, "[15;20f",0
+
 clear_screen: .string 27,"[2J",27,"[1;1f",0
 
 LOSE_end: 	  .string "You Lost, Welcome to Die!",0
@@ -614,16 +633,14 @@ random1_16:
 ;;;------------------------------------------------------------------------------;;;
 
 
-
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------------RENDER GAME BOARD---------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
-;;; Basic idea, push all the pointers to the stack, then pop them one-by-one
-;;; when poped they are mapped to the correct position on game board
-;;; their value is then used to determine which block to render
+;;;	Takes the SQ0-SQ15 ptrs from memory and renders their associated block values 
+;;; to putty in the order they are defined
 
 render_game_board:
-	PUSH {R0-R11, lr}
+	PUSH {R0-R11}
 
 	; Order of ptrs after the loading phase
 	;------Stack-------
@@ -688,160 +705,258 @@ render_game_board:
 	;LDR R1, ptr_to_mov_begin
 	BL output_string
 
-	MOV R2, #0x1 ;start i
+	MOV R2, #0x0 ;start i
 
 RGB_Loop:
-	; R1 ~ location to print
+	; R0 ~ location of cursor
+	; R1 ~ Value of the SQ
 	; R2 ~ counter
 
-	;calculating loop complete
-	CMP R2, #0x10
+	;Loading the value (0-2048) from the last pop into R1
+	LDM SP!, {R0}
+	LDR R1, [R0]
+
+	;Checking if loop complete
+	CMP R2, #0x11
 	BEQ RGB_end
 
-	; Calculating need for indent
-	PUSH {R0, R1}
-	MOV R0, R2	;Loading i onto mod
-	MOV R1, #0x4
-	BL modulus	; i % 4
+	;Assigning position
+	CMP R2, #0x0
+	BEQ RGB_pos_SQ0
 
-	CMP R0, #0x0 ; if i % 4 == 0 then we need to indent
-	POP {R0, R1} ;I think this should be fine
-	BEQ RGB_new_row
+	CMP R2, #0x1
+	BEQ RGB_pos_SQ1
 
+	CMP R2, #0x2
+	BEQ RGB_pos_SQ2
 
-	LDM SP!, {R0}
-	LDR R0, [R0]	;Set up R0 to be value of the block
+	CMP R2, #0x3
+	BEQ RGB_pos_SQ3
+
+	CMP R2, #0x4
+	BEQ RGB_pos_SQ4
+
+	CMP R2, #0x5
+	BEQ RGB_pos_SQ5
+
+	CMP R2, #0x6
+	BEQ RGB_pos_SQ6
+
+	CMP R2, #0x7
+	BEQ RGB_pos_SQ7
+
+	CMP R2, #0x8
+	BEQ RGB_pos_SQ8
+
+	CMP R2, #0x9
+	BEQ RGB_pos_SQ9
+
+	CMP R2, #0xA
+	BEQ RGB_pos_SQ10
+
+	CMP R2, #0xB
+	BEQ RGB_pos_SQ11
+
+	CMP R2, #0xC
+	BEQ RGB_pos_SQ12
+
+	CMP R2, #0xD
+	BEQ RGB_pos_SQ13
+
+	CMP R2, #0xE
+	BEQ RGB_pos_SQ14
+
+	CMP R2, #0xF
+	BEQ RGB_pos_SQ15
+
+;;;---------------------Set up cursor movement------------------------;;;
+;;; Based upon the R2 register (AKA the order of the blocks) the cursor movement
+;;; will be mapped to predetermined SQ
+RGB_pos_SQ0:
+	LDR R0, ptr_to_position
 	B RGB_Compare
 
-RGB_new_row:
-	;LDR R1, ptr_to_new_row
-	BL output_string
-	LDM SP!, {R0}
-	LDR R0, [R0]	;Set up R0 to be value of the block
+RGB_pos_SQ1:
+	LDR R0, ptr_to_position_SQ1
+	B RGB_Compare
+
+RGB_pos_SQ2:
+	LDR R0, ptr_to_position_SQ2
+	B RGB_Compare
+
+RGB_pos_SQ3:
+	LDR R0, ptr_to_position_SQ3
+	B RGB_Compare
+
+RGB_pos_SQ4:
+	LDR R0, ptr_to_position_SQ4
+	B RGB_Compare
+
+RGB_pos_SQ5:
+	LDR R0, ptr_to_position_SQ5
+	B RGB_Compare
+
+RGB_pos_SQ6:
+	LDR R0, ptr_to_position_SQ6
+	B RGB_Compare
+
+RGB_pos_SQ7:
+	LDR R0, ptr_to_position_SQ7
+	B RGB_Compare
+
+RGB_pos_SQ8:
+	LDR R0, ptr_to_position_SQ8
+	B RGB_Compare
+
+RGB_pos_SQ9:
+	LDR R0, ptr_to_position_SQ9
+	B RGB_Compare
+
+RGB_pos_SQ10:
+	LDR R0, ptr_to_position_SQ10
+	B RGB_Compare
+
+RGB_pos_SQ11:
+	LDR R0, ptr_to_position_SQ11
+	B RGB_Compare
+
+RGB_pos_SQ12:
+	LDR R0, ptr_to_position_SQ12
+	B RGB_Compare
+
+RGB_pos_SQ13:
+	LDR R0, ptr_to_position_SQ13
+	B RGB_Compare
+
+RGB_pos_SQ14:
+	LDR R0, ptr_to_position_SQ14
+	B RGB_Compare
+
+RGB_pos_SQ15:
+	LDR R0, ptr_to_position_SQ15
 	B RGB_Compare
 
 
-	; Compare the value to optional pow(2) number
+;;;---------------------Determine Number------------------------;;;
+;;; Based off the number loaded into R1, generated from the stack pop
+;;; determine the block to print corresponding to the R1 value
 RGB_Compare:
-	CMP R0, #0x2
+	CMP R1, #0x2
 	BEQ Render2
 
-	CMP R0, #0x4
+	CMP R1, #0x4
 	BEQ Render4
 
-	CMP R0, #0x8
+	CMP R1, #0x8
 	BEQ Render8
 
-	CMP R0, #0x10
+	CMP R1, #0x10
 	BEQ Render16
 
-	CMP R0, #0x20
+	CMP R1, #0x20
 	BEQ Render32
 
-	CMP R0, #0x40
+	CMP R1, #0x40
 	BEQ Render64
 
-	CMP R0, #0x80
+	CMP R1, #0x80
 	BEQ Render128
 
-	CMP R0, #0x100
+	CMP R1, #0x100
 	BEQ Render256
 
-	CMP R0, #0x200
+	CMP R1, #0x200
 	BEQ Render512
 
-	CMP R0, #0x400
+	CMP R1, #0x400
 	BEQ Render1024
 
-	CMP R0, #0x800
+	CMP R1, #0x800
 	BEQ Render2048
 
-	;In case there is a zero
+;;;-------Additional functionality-------;;;
+	;In case there is a zero (TODO)
 	MOV R0, R1 ;Move the cursor
 	BL output_string
 	B RGB_Loop
 
+;;;---------------------Rendering phase------------------------;;;
 ;;; Rendering via string and dox value
-;;; R1 holds the memory address of the top left position of the block
+;;; R0 is the cursor move, while R1 is the block print
 Render2:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block2 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
-	B RGB_Loop
-Render4:
-	LDR R0, ptr_to_block4 ;print the current block
-	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
 
+Render4:
+	BL output_string ;Move cursor
+	LDR R0, ptr_to_block 4;print the current block
+	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
+	B RGB_Loop
 Render8:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block8 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render16:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block16 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render32:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block32 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render64:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block64 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render128:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block128 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render256:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block256 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render512:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block512 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render1024:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block1024 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
-
 Render2048:
+	BL output_string ;Move cursor
 	LDR R0, ptr_to_block2048 ;print the current block
 	BL output_string
-	MOV R0, R1 ;Move the cursor
-	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
 
+;;;---------------------End Render------------------------;;;
+;;; Only be accessed when R2 = #0x11
 RGB_end:
-	POP {R0, R11, lr}
+	POP {R0, R11}
 	MOV pc, lr
+
 
 
 ;------------;
