@@ -59,7 +59,7 @@ RxFE: 				.equ 0x10
 
 ; GPIO INTERRUPT CONFIG
 GPIOF:		.equ 0x40000000
-GPIOD:		.equ 0x08
+GPIOD:		.equ 0x8
 GPIOIS: 	.equ 0x404
 GPIOIBE: 	.equ 0x408
 GPIOEV: 	.equ 0x40C
@@ -226,34 +226,34 @@ GPIO_init:
 
 	; rgb output 1,2,3
 	; sw1 input 4
-    LDR R1, [R2, #DIR]
+    LDRB R1, [R2, #DIR]
     ORR R1, #0x0E
     BIC R1, #0x10
-    STR R1, [R2, #DIR]
+    STRB R1, [R2, #DIR]
 
     ; set each pin as digital i/o
-    LDR R1, [R2, #DEN]
+    LDRB R1, [R2, #DEN]
     ORR R1, #0x1E
-    STR R1, [R2, #DEN]
+    STRB R1, [R2, #DEN]
     ; configure pullup resistor for sw1
-    LDR R1, [R2, #PUR]
+    LDRB R1, [R2, #PUR]
     ORR R1, #0x10
-    STR R1, [R2, #PUR]
+    STRB R1, [R2, #PUR]
 
 
     ; port D
-    MOV R2, #0x5000
-    MOVT R2, #0x4002
+    MOV R2, #0x7000
+    MOVT R2, #0x4000
 
 	; sw2-5 input D0-3
-    LDR R1, [R2, #DIR]
-    BIC R1, #0x0F
-    STR R1, [R2, #DIR]
+    LDRB R1, [R2, #DIR]
+    BIC R1, #0xF
+    STRB R1, [R2, #DIR]
 
     ; set each pin as digital i/o
-    LDR R1, [R2, #DEN]
+    LDRB R1, [R2, #DEN]
     ORR R1, #0x0F
-    STR R1, [R2, #DEN]
+    STRB R1, [R2, #DEN]
     ; configure pullup resistor
     ;LDRB R1, [R2, #PUR]
     ;ORR R1, #0x0F
@@ -305,43 +305,43 @@ gpio_interrupt_init:
 	MOV R4, #0x0F
 
 	; edge< / level sensitive
-	LDR R1, [R0, #GPIOIS]
+	LDRB R1, [R0, #GPIOIS]
 	BIC R1, R3
-	STR R1, [R0, #GPIOIS]
+	STRB R1, [R0, #GPIOIS]
 	; edge< / level sensitive
-	LDR R1, [R2, #GPIOIS]
+	LDRB R1, [R2, #GPIOIS]
 	BIC R1, R4
-	STR R1, [R2, #GPIOIS]
+	STRB R1, [R2, #GPIOIS]
 
 
 	; Both / single< edge trigger
-	LDR R1, [R0, #GPIOIBE]
+	LDRB R1, [R0, #GPIOIBE]
 	BIC R1, R3
-	STR R1, [R0, #GPIOIBE]
+	STRB R1, [R0, #GPIOIBE]
 	; Both / single< edge trigger
-	LDR R1, [R2, #GPIOIBE]
+	LDRB R1, [R2, #GPIOIBE]
 	BIC R1, R4
-	STR R1, [R2, #GPIOIBE]
+	STRB R1, [R2, #GPIOIBE]
 
 
 	; Rising< / Falling edge
-	LDR R1, [R0, #GPIOEV]
+	LDRB R1, [R0, #GPIOEV]
 	ORR R1, R3
-	STR R1, [R0, #GPIOEV]
+	STRB R1, [R0, #GPIOEV]
 	; Rising< / Falling edge
-	LDR R1, [R2, #GPIOEV]
+	LDRB R1, [R2, #GPIOEV]
 	ORR R1, R4
-	STR R1, [R2, #GPIOEV]
+	STRB R1, [R2, #GPIOEV]
 
 
 	; mask / unmask<
-	LDR R1, [R0, #GPIOIM]
+	LDRB R1, [R0, #GPIOIM]
 	ORR R1, R3
-	STR R1, [R0, #GPIOIM]
+	STRB R1, [R0, #GPIOIM]
 	; mask / unmask<
-	LDR R1, [R2, #GPIOIM]
+	LDRB R1, [R2, #GPIOIM]
 	ORR R1, R4
-	STR R1, [R2, #GPIOIM]
+	STRB R1, [R2, #GPIOIM]
 
 
 	; allow GPIO port D,F to interrupt processor
@@ -592,19 +592,13 @@ read_from_push_btns:
     MOV R1, #0x7000
     MOVT R1, #0x4000
 
-	; input
-    MOV R0, #0x00
-    STRB R0, [R1, #DIR]
-
-	; pullup
-    ;MOV R2, #0x0F
-    ;STRB R2, [R1, #PUR]
-
-PB_poll:
     LDRB R0, [R1, #DATA] ;loading the byte
 
-	CMP R0, #0x0
-	BEQ PB_poll
+	;isolate Pins 0-3
+    AND R0, #0xF
+
+	;CMP R0, #0x0
+	;BEQ PB_poll
 
     POP {lr}
     MOV pc, lr
@@ -616,6 +610,7 @@ PB_poll:
 read_tiva_push_button:
 	PUSH {lr}
 
+	; port F
 	; base address
 	MOV R0, #0x5000
 	MOVT R0, #0x4002

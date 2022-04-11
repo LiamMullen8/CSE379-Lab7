@@ -8,12 +8,22 @@
 ; move cursor
 ; last line of block and its color
 ;
-;	+-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
-;	|     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
-;	|  2  | |  4  | |  8  | | 16  | | 32  | | 64  | | 128 | | 256 | | 512 | |1024 | |2048 |
-;	|     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
-;	+-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
+; +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
+; |     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
+; |  2  | |  4  | |  8  | | 16  | | 32  | | 64  | | 128 | | 256 | | 512 | |1024 | |2048 |
+; |     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
+; +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
 	.data
+
+	; screens
+	.global pause_menu
+	.global start_menu
+	.global win_block_menu
+	.global clear_screen
+	.global LOSE_end
+	.global WIN_end
+
+	; game components
 	.global block2
 	.global block4
 	.global block8
@@ -26,145 +36,89 @@
 	.global block1024
 	.global block2048
 	.global game_board
-	.global LOSE_end
-	.global WIN_end
+
+	; value of each tile in grid
+	.global SQ0
+	.global SQ1
+	.global SQ2
+	.global SQ3
+	.global SQ4
+	.global SQ5
+	.global SQ6
+	.global SQ7
+	.global SQ8
+	.global SQ9
+	.global SQ10
+	.global SQ11
+	.global SQ12
+	.global SQ13
+	.global SQ14
+	.global SQ15
+
+	; ansi position of each tile in grid
+	.global position_SQ0
+	.global position_SQ1
+	.global position_SQ2
+	.global position_SQ3
+	.global position_SQ4
+	.global position_SQ5
+	.global position_SQ6
+	.global position_SQ7
+	.global position_SQ8
+	.global position_SQ9
+	.global position_SQ10
+	.global position_SQ11
+	.global position_SQ12
+	.global position_SQ13
+	.global position_SQ14
+	.global position_SQ15
+
+	; meta
 	.global TIMESCORE_prompt
 	.global SCORE
-	;.global TIME_prompt
 	.global TIME
 	.global END_status
 	.global PAUSED
 	.global WIN_BLOCK
 	.global position
-	.global pause_menu
-	.global start_menu
 
+; top row show player's time and score
+TIMESCORE_prompt:	.string 27,"[1;1f",27,"[37mTIME: ",27,"[1;17f",27,"[37mSCORE: ",0xA,0xD,0x0
 
-block2: 	.string 27,"[46m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  2  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block4: 	.string 27,"[45m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  4  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block8: 	.string 27,"[44m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  8  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block16: 	.string 27,"[43m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m 16  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block32: 	.string 27,"[42m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m 32  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block64: 	.string 27,"[45;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m 64  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block128: 	.string 27,"[44;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m 128 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block256: 	.string 27,"[43;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m 256 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block512:	.string 27,"[42;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m 512 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block1024: 	.string 27,"[41;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m1024 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
-block2048: 	.string 27,"[40;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m2048 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
+; track time and score for current game
+SCORE:				.word 0x00000000
+TIME:				.word 0x00000000
 
-; size of game board is 4x4 blocks, with each block being 3x5
-game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "+-----+-----+-----+-----+", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "+-----+-----+-----+-----+", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "+-----+-----+-----+-----+", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "|     |     |     |     |", 0xA, 0xD
-			.string "+-----+-----+-----+-----+", 0x0
-
-
-start_menu:	  .string 27,"[5;1f", 27,"[45m",27,"[37;1m+==============================+",0xA,0xD
-		  							.string 27,"[37;1m+       WELCOME TO 2048        +",0xA,0xD
-									.string 27,"[37;1m+                              +",0xA,0xD
-									.string 27,"[37;1m+  SW1 - START GAME            +",0xA,0xD
-									.string 27,"[37;1m+                              +",0xA,0xD
-									.string 27,"[37;1m+  HOW TO PLAY:                +",0xA,0xD
-									.string 27,"[37;1m+  USE W,A,S,D TO SLIDE BLOCKS +",0xA,0xD
-									.string 27,"[37;1m+  COMBINE EQUAL BLOCKS        +",0xA,0xD
-									.string 27,"[37;1m+                              +",0xA,0xD
-									.string 27,"[37;1m+  made by Liam Mullen         +",0xA,0xD
-									.string 27,"[37;1m+          Marcos DeLaOsaCruz  +",0xA,0xD
-									.string 27,"[37;1m+                              +",0xA,0xD
-									.string 27,"[37;1m+          CSE379 Spring 2022  +",0xA,0xD
-									.string 27,"[37;1m+==============================+",27, "[0m", 0
-
-pause_menu:	   .string 27,"[5;1f",27,"[45m",27,"[37;1m+==============================+", 0xA,0xD
-									.string	27,"[37;1m+         GAME PAUSED          +", 0xA,0xD
-									.string	27,"[37;1m+                              +", 0xA,0xD
-									.string	27,"[37;1m+  SW2 - QUIT GAME             +", 0xA,0xD
-									.string	27,"[37;1m+  SW3 - RESTART GAME          +", 0xA,0xD
-									.string	27,"[37;1m+  SW4 - RESUME GAME           +", 0xA,0xD
-									.string	27,"[37;1m+  SW5 - CHANGE WIN BLOCK      +", 0xA,0xD
-									.string	27,"[37;1m+                              +", 0xA,0xD
-									.string	27,"[37;1m+==============================+",27,"[0m",0
-
-win_block_menu:.string 27,"[5;1f",27,"[45m",27,"[37;1m+==============================+",0xA,0xD
-									.string	27,"[37;1m+       CHANGE WIN BLOCK       +",0xA,0xD
-									.string	27,"[37;1m+                              +",0xA,0xD
-									.string	27,"[37;1m+  SW2 - 2048                  +",0xA,0xD
-									.string	27,"[37;1m+  SW3 - 1024                  +",0xA,0xD
-									.string	27,"[37;1m+  SW4 - 512                   +",0xA,0xD
-									.string	27,"[37;1m+  SW5 - 256                   +",0xA,0xD
-									.string	27,"[37;1m+                              +",0xA,0xD
-									.string	27,"[37;1m+==============================+",27,"[0m",0
-
-;Cursor Movements
-position:	.string 27, "[3;2f",0
-position_SQ1:	.string 27, "[3;8f",0
-position_SQ2:	.string 27, "[3;14f",0
-position_SQ3:	.string 27, "[3,22f",0
-
-position_SQ4:	.string 27, "[7;2f",0
-position_SQ5:	.string 27, "[7;8f",0
-position_SQ6:	.string 27, "[7;14f",0
-position_SQ7:	.string 27, "[7;20f",0
-
-position_SQ8:	.string 27, "[11;2f",0
-position_SQ9:	.string 27, "[11;8f",0
-position_SQ10:	.string 27, "[11;14f",0
-position_SQ11:	.string 27, "[11;20f",0
-
-position_SQ12:	.string 27, "[15;2f",0
-position_SQ13:	.string 27, "[15;8f",0
-position_SQ14:	.string 27, "[15;14f",0
-position_SQ15:	.string 27, "[15;20f",0
-
-clear_screen: .string 27,"[2J",27,"[1;1f",0
-
-LOSE_end: 	  .string "You Lost, Welcome to Die!",0
-WIN_end: 	  .string "You Won, Conglaturmation!",0
-TIMESCORE_prompt: .string 27,"[1;1f",27,"[37mTime: ",27,"[1;17f",27,"[37mScore: ",27,"[2;1f",0
-
-SCORE:		.word 0x00000000
-TIME:		.word 0x00000000
-
-END_status:	.byte 0x00
-PAUSED:		.byte 0x00
-
-;Data corresponding to square values
-SQ0: .byte 0x00
-SQ1: .byte 0x00
-SQ2: .byte 0x00
-SQ3: .byte 0x00
-
-SQ4: .byte 0x00
-SQ5: .byte 0x00
-SQ6: .byte 0x00
-SQ7: .byte 0x00
-
-SQ8: .byte 0x00
-SQ9: .byte 0x00
-SQ10: .byte 0x00
-SQ11: .byte 0x00
-
-SQ12: .byte 0x00
-SQ13: .byte 0x00
-SQ14: .byte 0x00
-SQ15: .byte 0x00
+; flags for checking in progress/ended
+END_status:			.byte 0x00
+PAUSED:				.byte 0x00
 
 ;Winning value block - default 2048
 WIN_BLOCK: .half 2048
 
+;Data corresponding to square values
+SQ0:	.byte 0x00
+SQ1:	.byte 0x00
+SQ2:	.byte 0x00
+SQ3:	.byte 0x00
 
+SQ4:	.byte 0x00
+SQ5:	.byte 0x00
+SQ6:	.byte 0x00
+SQ7:	.byte 0x00
+
+SQ8:	.byte 0x00
+SQ9:	.byte 0x00
+SQ10:	.byte 0x00
+SQ11:	.byte 0x00
+
+SQ12:	.byte 0x00
+SQ13:	.byte 0x00
+SQ14:	.byte 0x00
+SQ15:	.byte 0x00
+
+
+;;-----------------------------------------------------------;;
  	.text
 
  	.global uart_init
@@ -174,9 +128,9 @@ WIN_BLOCK: .half 2048
  	.global gpio_interrupt_init
  	.global timer_interrupt_init
 
- 	.global UART0_Handler
- 	.global Switch_Handler
- 	.global Timer_Handler
+ 	.global UART0_Handler			; for keystrokes
+ 	.global Switch_Handler			; for button/switch press
+ 	.global Timer_Handler			; for timer
 
  	.global simple_read_character	; get keystroke w,a,s,d
  	.global read_from_push_btns		; read sw2-5
@@ -185,60 +139,76 @@ WIN_BLOCK: .half 2048
  	.global output_string
  	.global int2string				; to print current score and time
  	.global illuminate_RGB_LED
-	.global modulus
-	.global XORSHIFT32
+	.global modulus					; r0 % r1
+	.global random1_16				; RNG
+ 	.global lab7					; main
 
- 	.global lab7
-
-ptr_to_pause_menu:		.word pause_menu
-ptr_to_start_menu:		.word start_menu
-ptr_to_change_win_menu:	.word win_block_menu
-
-
-ptr_to_clear_screen:	.word clear_screen
-ptr_to_position		.word position
-ptr_to_game_board:		.word game_board
-ptr_to_win:				.word WIN_end
-ptr_to_lose:			.word LOSE_end
-ptr_to_end_status:		.word END_status
-ptr_to_paused:			.word PAUSED
+ptr_to_pause_menu:			.word pause_menu
+ptr_to_start_menu:			.word start_menu
+ptr_to_change_win_menu:		.word win_block_menu
+ptr_to_clear_screen:		.word clear_screen
+ptr_to_game_board:			.word game_board
+ptr_to_win:					.word WIN_end
+ptr_to_lose:				.word LOSE_end
+ptr_to_end_status:			.word END_status
+ptr_to_paused:				.word PAUSED
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
-ptr_to_score:			.word SCORE
-;ptr_to_time_prompt:		.word TIME_prompt
-ptr_to_time:			.word TIME
+ptr_to_score:				.word SCORE
+ptr_to_time:				.word TIME
 
-ptr_to_block2:			.word block2
-ptr_to_block4:			.word block4
-ptr_to_block8:			.word block8
-ptr_to_block16:			.word block16
-ptr_to_block32:			.word block32
-ptr_to_block64:			.word block64
-ptr_to_block128:		.word block128
-ptr_to_block256:		.word block256
-ptr_to_block512:		.word block512
-ptr_to_block1024:		.word block1024
-ptr_to_block2048:		.word block2048
+ptr_to_block2:				.word block2
+ptr_to_block4:				.word block4
+ptr_to_block8:				.word block8
+ptr_to_block16:				.word block16
+ptr_to_block32:				.word block32
+ptr_to_block64:				.word block64
+ptr_to_block128:			.word block128
+ptr_to_block256:			.word block256
+ptr_to_block512:			.word block512
+ptr_to_block1024:			.word block1024
+ptr_to_block2048:			.word block2048
 
 ;ptrs to abstraction layer
-ptr_to_SQ0: .word SQ0
-ptr_to_SQ1: .word SQ1
-ptr_to_SQ2: .word SQ2
-ptr_to_SQ3: .word SQ3
+ptr_to_SQ0: 				.word SQ0
+ptr_to_SQ1: 				.word SQ1
+ptr_to_SQ2: 				.word SQ2
+ptr_to_SQ3: 				.word SQ3
 
-ptr_to_SQ4: .word SQ4
-ptr_to_SQ5: .word SQ5
-ptr_to_SQ6: .word SQ6
-ptr_to_SQ7: .word SQ7
+ptr_to_SQ4: 				.word SQ4
+ptr_to_SQ5: 				.word SQ5
+ptr_to_SQ6: 				.word SQ6
+ptr_to_SQ7: 				.word SQ7
 
-ptr_to_SQ8: .word SQ8
-ptr_to_SQ9: .word SQ9
-ptr_to_SQ10: .word SQ10
-ptr_to_SQ11: .word SQ11
+ptr_to_SQ8:					.word SQ8
+ptr_to_SQ9:					.word SQ9
+ptr_to_SQ10: 				.word SQ10
+ptr_to_SQ11: 				.word SQ11
 
-ptr_to_SQ12: .word SQ12
-ptr_to_SQ13: .word SQ13
-ptr_to_SQ14: .word SQ14
-ptr_to_SQ15: .word SQ15
+ptr_to_SQ12: 				.word SQ12
+ptr_to_SQ13: 				.word SQ13
+ptr_to_SQ14: 				.word SQ14
+ptr_to_SQ15: 				.word SQ15
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ptr_to_position_SQ0: 		.word position_SQ0
+ptr_to_position_SQ1: 		.word position_SQ1
+ptr_to_position_SQ2: 		.word position_SQ2
+ptr_to_position_SQ3: 		.word position_SQ3
+
+ptr_to_position_SQ4: 		.word position_SQ4
+ptr_to_position_SQ5: 		.word position_SQ5
+ptr_to_position_SQ6: 		.word position_SQ6
+ptr_to_position_SQ7: 		.word position_SQ7
+
+ptr_to_position_SQ8:		.word position_SQ8
+ptr_to_position_SQ9:		.word position_SQ9
+ptr_to_position_SQ10: 		.word position_SQ10
+ptr_to_position_SQ11: 		.word position_SQ11
+
+ptr_to_position_SQ12: 		.word position_SQ12
+ptr_to_position_SQ13: 		.word position_SQ13
+ptr_to_position_SQ14: 		.word position_SQ14
+ptr_to_position_SQ15: 		.word position_SQ15
 
 ; ptr to winning value block
 ptr_to_win_block: .word WIN_BLOCK
@@ -277,6 +247,8 @@ lab7:
 	bl uart_interrupt_init
 	bl gpio_interrupt_init
 	bl timer_interrupt_init
+	;;;;;;;;;;;;;;;;;;;;;;;
+
 
 	;; clear terminal display
 	LDR R0, ptr_to_clear_screen
@@ -288,17 +260,26 @@ lab7:
 	LDR R0, ptr_to_game_board
 	BL output_string
 
-	LDR R0, ptr_to_position
+	LDR R0, ptr_to_position_SQ0
 	BL output_string
 
-	LDR R0, ptr_to_block2
+	LDR R0, ptr_to_block256
 	BL output_string
 
 	LDR R0, ptr_to_start_menu
 	BL output_string
 
-lo:
-	b lo
+	LDR R0, ptr_to_pause_menu
+	BL output_string
+
+	LDR R0, ptr_to_change_win_menu
+	BL output_string
+
+	LDR R0, ptr_to_win
+	BL output_string
+
+	LDR R0, ptr_to_lose
+	BL output_string
 
 
 	MOV pc, lr
@@ -411,7 +392,7 @@ Switch_Handler:
 	; check which switch was pressed
 
 	BL read_tiva_push_button
-	CMP R0, #1
+	CMP R0, #0x0
 	BEQ SW1_pressed
 
 	;check pause status for sw2-5
@@ -427,13 +408,13 @@ Switch_Handler:
 	;BEQ switch_end
 
 	BL read_from_push_btns
-	CMP R0, #0x1
+	CMP R0, #0x1		;0xE possible that its flipped?
 	BEQ SW2_pressed
-	CMP R0, #0x2
+	CMP R0, #0x2		;0xD
 	BEQ SW3_pressed
-	CMP R0, #0x4
+	CMP R0, #0x4		;0xB
 	BEQ SW4_pressed
-	CMP R0, #0x8
+	CMP R0, #0x8		;0x7
 	BEQ SW5_pressed
 
 ; Pauses the game, if already paused, this will have no effect
@@ -453,9 +434,8 @@ SW1_pressed:
 	LDR R0, ptr_to_pause_menu
 	BL output_string
 
-	LDR R0, ptr_to_change_win_menu
-	BL output_string
-
+	MOV R0, #0xC ;Cyan
+	BL illuminate_RGB_LED
 	;;;; if in change win val menu ;;;;
 	;LDR R1, ptr_to_win_block
 	;MOV R0, #256
@@ -612,8 +592,9 @@ timer_end:
 ;;;------------------------------------------------------------------------------;;;
 ; Takes in initial arguments in R0
 ; Returns resulting pseudo-random number mod 16 in R0
-random1_16:
-	PUSH{r1-r4, lr}
+; Returns 2 or 4 w prob of 10/16 , 6/16 ~~~ 37.5:62.5
+random_generator:
+	PUSH{r2-r4, lr}
 
 	; x ^= x rot> 13
 	ROR R1, R0, #13
@@ -628,19 +609,33 @@ random1_16:
 	MOV R1, #16
 	BL modulus
 
-	POP{r1-r4, lr}
+	; if x <= 6, return 4
+	; else,		 return 2
+	CMP R0, #6
+	BLT gen4
+
+	MOV R1, #2
+	B rand_end
+gen4:
+	MOV R1, #4
+
+rand_end:
+	POP{r2-r4, lr}
 	MOV pc, lr
 ;;;------------------------------------------------------------------------------;;;
+
+
+
 
 
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------------RENDER GAME BOARD---------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
-;;;	Takes the SQ0-SQ15 ptrs from memory and renders their associated block values 
+;;;	Takes the SQ0-SQ15 ptrs from memory and renders their associated block values
 ;;; to putty in the order they are defined
 
 render_game_board:
-	PUSH {R0-R11}
+	PUSH {R0-R11, lr}
 
 	; Order of ptrs after the loading phase
 	;------Stack-------
@@ -773,7 +768,7 @@ RGB_Loop:
 ;;; Based upon the R2 register (AKA the order of the blocks) the cursor movement
 ;;; will be mapped to predetermined SQ
 RGB_pos_SQ0:
-	LDR R0, ptr_to_position
+	LDR R0, ptr_to_position_SQ0
 	B RGB_Compare
 
 RGB_pos_SQ1:
@@ -892,7 +887,7 @@ Render2:
 
 Render4:
 	BL output_string ;Move cursor
-	LDR R0, ptr_to_block 4;print the current block
+	LDR R0, ptr_to_block4;print the current block
 	BL output_string
 	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
@@ -954,7 +949,7 @@ Render2048:
 ;;;---------------------End Render------------------------;;;
 ;;; Only be accessed when R2 = #0x11
 RGB_end:
-	POP {R0, R11}
+	POP {R0, R11, lr}
 	MOV pc, lr
 
 
