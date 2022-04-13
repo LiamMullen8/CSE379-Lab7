@@ -612,21 +612,9 @@ read_from_push_btns:
     ; port D
     MOV R1, #0x7000
     MOVT R1, #0x4000
-
-	; input
-    MOV R0, #0x00
-    STRB R0, [R1, #DIR]
-
-	; pullup
-    ;MOV R2, #0x0F
-    ;STRB R2, [R1, #PUR]
-
-PB_poll:
+    
     LDRB R0, [R1, #DATA] ;loading the byte
-
-	CMP R0, #0x0
-	BEQ PB_poll
-
+    
     POP {lr}
     MOV pc, lr
 
