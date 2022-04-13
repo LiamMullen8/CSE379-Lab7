@@ -69,6 +69,10 @@
 	.global WIN_BLOCK
 	.global position
 
+	; game mechanics
+	.global merge
+
+
 ; top row show player's time and score
 TIMESCORE_prompt:	.string 27,"[1;1f",27,"[37mTIME: ",27,"[1;17f",27,"[37mSCORE: ",0xA,0xD,0x0
 
@@ -255,8 +259,8 @@ lab7:
 	BL output_string
 
 
-	l:
-		b l
+l:
+	b l
 
 
 	;;
@@ -593,9 +597,9 @@ sw4_resume:
 	; re-enable timer
 	MOV R0, #0x0000
 	MOVT R0, #0x4003
-	LDR R1, [R0, #GPTMCTL]
+	LDR R1, [R0, #0xC]
 	ORR R1, #0x1
-	STR R1, [R0, #GPTMCTL]
+	STR R1, [R0, #0xC]
 
 	;;
 	B switch_end
