@@ -1,18 +1,3 @@
-;;;----------------------------------------------------------------;;;
-;;;------------------COLOR MAP/BLOCK DECLARATION-------------------;;;
-;;;----------------------------------------------------------------;;;
-; block color
-; first line of block and its color
-; move cursor
-; next line of block and its color
-; move cursor
-; last line of block and its color
-;
-; +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
-; |     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
-; |  2  | |  4  | |  8  | | 16  | | 32  | | 64  | | 128 | | 256 | | 512 | |1024 | |2048 |
-; |     | |     | |     | |     | |     | |     | |     | |     | |     | |     | |     |
-; +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+ +-----+
 	.data
 
 	; screens
@@ -24,6 +9,7 @@
 	.global WIN_end
 
 	; game components
+	.global block0
 	.global block2
 	.global block4
 	.global block8
@@ -78,7 +64,8 @@
 	.global SCORE
 	.global TIME
 	.global END_status
-	.global PAUSED
+	.global PAUSED_status
+	.global CHANGE_status
 	.global WIN_BLOCK
 	.global position
 
@@ -91,7 +78,8 @@ TIME:				.word 0x00000000
 
 ; flags for checking in progress/ended
 END_status:			.byte 0x00
-PAUSED:				.byte 0x00
+PAUSED_status:		.byte 0x00
+CHANGE_status:		.byte 0x00
 
 ;Winning value block - default 2048
 WIN_BLOCK: .half 2048
@@ -142,7 +130,6 @@ SQ15:	.byte 0x00
 	.global modulus					; r0 % r1
 	.global random1_16				; RNG
  	.global lab7					; main
- 	.global merge					; smallest subroutine of the movement category
 
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
@@ -152,7 +139,8 @@ ptr_to_game_board:			.word game_board
 ptr_to_win:					.word WIN_end
 ptr_to_lose:				.word LOSE_end
 ptr_to_end_status:			.word END_status
-ptr_to_paused:				.word PAUSED
+ptr_to_paused_status:		.word PAUSED_status
+ptr_to_change_status:		.word CHANGE_status
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
 ptr_to_score:				.word SCORE
 ptr_to_time:				.word TIME
@@ -251,11 +239,27 @@ lab7:
 	bl timer_interrupt_init
 	;;;;;;;;;;;;;;;;;;;;;;;
 
+	; disable timer
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+	LDR R1, [R0, #0xC]
+	BIC R1, #0x1
+	STR R1, [R0, #0xC]
 
 	;; clear terminal display
 	LDR R0, ptr_to_clear_screen
 	BL output_string
 
+	;; display starting screen
+	LDR R0, ptr_to_start_menu
+	BL output_string
+
+
+	l:
+		b l
+
+
+	;;
 	LDR R0, ptr_to_timescore_prompt
 	BL output_string
 
@@ -267,6 +271,7 @@ lab7:
 
 	LDR R0, ptr_to_block256
 	BL output_string
+
 
 	LDR R0, ptr_to_start_menu
 	BL output_string
@@ -283,33 +288,6 @@ lab7:
 	LDR R0, ptr_to_lose
 	BL output_string
 
-
-	MOV pc, lr
-
-
-	LDR R0, ptr_to_block4
-	BL output_string
-	LDR R0, ptr_to_block8
-	BL output_string
-	LDR R0, ptr_to_block16
-	BL output_string
-	LDR R0, ptr_to_block32
-	BL output_string
-	LDR R0, ptr_to_block64
-	BL output_string
-	LDR R0, ptr_to_block128
-	BL output_string
-	LDR R0, ptr_to_block256
-	BL output_string
-	LDR R0, ptr_to_block512
-	BL output_string
-	LDR R0, ptr_to_block1024
-	BL output_string
-	LDR R0, ptr_to_block2048
-	BL output_string
-
-main_loop:
-	B main_loop
 
 	MOV pc, lr
 
@@ -342,21 +320,21 @@ UART0_Handler:
 	BEQ D_pressed
 
 W_pressed:
+	;BL move_up
 	B uart_end
 
 A_pressed:
+	;BL move_left
 	B uart_end
 
 S_pressed:
+	;BL move_down
 	B uart_end
 
 D_pressed:
+	;BL move_right
 	B uart_end
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Insert Logic here
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 uart_end:
 	POP {r0-r11, lr}
@@ -390,27 +368,17 @@ Switch_Handler:
 	ORR R1, #SW4
 	ORR R1, #SW5
 	STR R1, [R0, #GPIOICR]
+
 	;;;-------------------------------------------------------------;;;
 	; check which switch was pressed
 
 	BL read_tiva_push_button
-	CMP R0, #0x0
+	CMP R0, #0x1
 	BEQ SW1_pressed
 
-	;check pause status for sw2-5
-	;LDR R1, ptr_to_paused
-	;LDRB R0, [R1]
-	;CMP R0, #0x0	; if playing, button has no effect
-	;BEQ switch_end
-
-	;check which menu (std pause, change win val)
-	;LDR R1, ptr_to_menu
-	;LDRB R0, [R1]
-	;CMP R0, #0x0	; if playing, button has no effect
-	;BEQ switch_end
 
 	BL read_from_push_btns
-	CMP R0, #0x1		;0xE possible that its flipped?
+	CMP R0, #0x1		;0xE, possible that its 1s comp bc of pullup resistors
 	BEQ SW2_pressed
 	CMP R0, #0x2		;0xD
 	BEQ SW3_pressed
@@ -419,133 +387,290 @@ Switch_Handler:
 	CMP R0, #0x8		;0x7
 	BEQ SW5_pressed
 
-; Pauses the game, if already paused, this will have no effect
+
+;;-------------------------------------------------------------;;
+; If playing game, pause the game
+; If already paused, this will have no effect
+; if in change win menu, go back to pause menu
 SW1_pressed:
 
-	;pause status
-	;LDR R1, ptr_to_paused
-	;LDRB R0, [R1]
-	;CMP R0, #0x0
-	;BNE switch_end
-	;MOV R0, #0x1
-	;STRB R0, [R1]
+	;check menu status
+	LDR R1, ptr_to_paused_status
+	LDRB R1, [R1]
+
+	; if not paused, just pause
+	CMP R1, #0
+	BEQ sw1_pause
+
+	; already paused, check win
+	LDR R1, ptr_to_change_status
+	LDRB R1, [R1]
+
+	CMP R1, #1
+	BEQ sw1_change_win
+
+	; if paused, and not in change win menu, sw1 does nothing
+	B switch_end
+
+
+sw1_pause:
+	;set pause status
+	LDR R1, ptr_to_paused_status
+	MOV R0, #0x1
+	STRB R0, [R1]
 
 	; disable timer
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+	LDR R1, [R0, #0xC]
+	BIC R1, #0x1
+	STR R1, [R0, #0xC]
 
 	; display pause menu
 	LDR R0, ptr_to_pause_menu
 	BL output_string
 
-	MOV R0, #0xC ;Cyan
+	; rgb is off when game is paused
+	MOV R0, #0x0
 	BL illuminate_RGB_LED
-	;;;; if in change win val menu ;;;;
-	;LDR R1, ptr_to_win_block
-	;MOV R0, #256
-	;STRH R0, [R1]
-
+	;;
 	B switch_end
 
-; if paused, quit game
+
+sw1_change_win:
+
+	; if in change win val menu, go back to pause menu
+	LDR R1, ptr_to_change_status
+	MOV R0, #0
+	STRB R0, [R1]
+
+	; redisplay pause screen
+	B sw1_pause
+
+;;----------------------------------------------------------;;
+
+
+
+;;-------------------------------------------------------------;;
+; If playing game, do nothing
+; If paused, quit/end game
+; If change win menu, update win block to 2048
 SW2_pressed:
 
 	;check pause status
-;	LDR R1, ptr_to_paused
-;	LDRB R0, [R1]
-;	CMP R0, #0x0	; if playing, button has no effect
-;	BEQ switch_end
+	LDR R1, ptr_to_paused_status
+	LDRB R1, [R1]
 
-	;;;; if in change win val menu ;;;;
+	; if not paused, do nothing
+	CMP R1, #0
+	BEQ switch_end
+
+	; if paused, check win
+	LDR R1, ptr_to_change_status
+	LDRB R1, [R1]
+
+	; if in change win, update block to 2048
+	CMP R1, #1
+	BEQ sw2_change_win
+
+	; if paused, and not in change win menu, sw2 quits game
+	B sw2_quit
+
+
+sw2_quit:
+	; new timer
+	; new score
+	; clear pointers to SQ's
+	; display start menu
+	B switch_end
+
+sw2_change_win:
+
 	LDR R1, ptr_to_win_block
 	MOV R0, #2048
 	STRH R0, [R1]
+
+	; exit change win menu
+	LDR R1, ptr_to_change_status
+	MOV R0, #0
+	STRB R0, [R1]
+
 	; redisplay pause menu
+	B sw1_pause
+
+;;-------------------------------------------------------------;;
 
 
-	; else, quit/end the game
 
-	; new timer
-	; new score
-	; display start menu
-
-	B switch_end
-
-; if paused, restart game
+;;-------------------------------------------------------------;;
+; If playing game, do nothing
+; If paused, restart game
+; If change win menu, update win block to 1024
 SW3_pressed:
 
 	;check pause status
-	LDR R1, ptr_to_paused
-	LDRB R0, [R1]
-	CMP R0, #0x0	; if playing, button has no effect
+	LDR R1, ptr_to_paused_status
+	LDRB R1, [R1]
+
+	; if not paused, do nothing
+	CMP R1, #0
 	BEQ switch_end
 
-	; new board
+	; if paused, check win
+	LDR R1, ptr_to_change_status
+	LDRB R1, [R1]
+
+	; if in change win, update block to 1024
+	CMP R1, #1
+	BEQ sw3_change_win
+
+	; if paused, and not in change win menu, sw2 quits game
+	B sw3_restart
+
+
+sw3_restart:
 	; new timer
 	; new score
-	; keep winning block value
+	; clear pointers to SQ's
+	; display start menu
+	B switch_end
 
-	;;;; if in change win val menu ;;;;
+sw3_change_win:
+
 	LDR R1, ptr_to_win_block
 	MOV R0, #1024
 	STRH R0, [R1]
+
+	; exit change win menu
+	LDR R1, ptr_to_change_status
+	MOV R0, #0
+	STRB R0, [R1]
+
 	; redisplay pause menu
+	B sw1_pause
 
-	B switch_end
+;;-------------------------------------------------------------;;
 
-; if paused, resume game
+
+
+;;-------------------------------------------------------------;;
+; If playing game, do nothing
+; If paused, resume game
+; If change win menu, update win block to 512
 SW4_pressed:
 
 	;check pause status
-	LDR R1, ptr_to_paused
-	LDRB R0, [R1]
-	CMP R0, #0x0
+	LDR R1, ptr_to_paused_status
+	LDRB R1, [R1]
+
+	; if not paused, do nothing
+	CMP R1, #0
 	BEQ switch_end
 
-	;unpause
-	MOV R0, #0x0
-	STRB R0, [R1]
+	; if paused, check win
+	LDR R1, ptr_to_change_status
+	LDRB R1, [R1]
 
-	; reenable timer
+	; if in change win, update block to 512
+	CMP R1, #1
+	BEQ sw4_change_win
 
+	; if paused, and not in change win menu, sw2 quits game
+	B sw4_resume
 
+sw4_resume:
 
-	;;;; if in change win val menu ;;;;
+	; clear pause menu
+	LDR R0, ptr_to_clear_screen
+	BL output_string
+	; rerender current board,time,score
+
+	; clear paused flag
+	LDR R0, ptr_to_paused_status
+	MOV R1, #0
+	STRB R1, [R0]
+
+	; re-enable timer
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+	LDR R1, [R0, #GPTMCTL]
+	ORR R1, #0x1
+	STR R1, [R0, #GPTMCTL]
+
+	;;
+	B switch_end
+
+sw4_change_win:
+
+	; update win block to 512
 	LDR R1, ptr_to_win_block
 	MOV R0, #512
 	STRH R0, [R1]
 
+	; exit change win menu
+	LDR R1, ptr_to_change_status
+	MOV R0, #0
+	STRB R0, [R1]
+
 	; redisplay pause menu
+	B sw1_pause
+;;-------------------------------------------------------------;;
 
-	B switch_end
 
-
-; if paused, change win number
+;;-------------------------------------------------------------;;
+; If playing game, do nothing
+; If paused, go to change win menu
+; If change win menu, update win block to 256
 SW5_pressed:
-	B switch_end
 
-	; display new menu with sw2-5 options for win block
+	;check pause status
+	LDR R1, ptr_to_paused_status
+	LDRB R1, [R1]
 
-	; display pause menu
+	; if not paused, do nothing
+	CMP R1, #0
+	BEQ switch_end
+
+	; if paused, check win
+	LDR R1, ptr_to_change_status
+	LDRB R2, [R1]
+
+	; if in change win, update block to 256
+	CMP R2, #1
+	BEQ sw2_change_win
+
+	; else, go to change win menu
+sw5_change_menu:
+	MOV R2, #1
+	STRB R2, [R1]
+
+	; display change win menu
 	LDR R0, ptr_to_change_win_menu
 	BL output_string
 
-	;;;; if in change win val menu ;;;;
+	B switch_end
+
+sw5_change_win:
+
+	; update win block to 256
 	LDR R1, ptr_to_win_block
 	MOV R0, #256
 	STRH R0, [R1]
 
+	; exit change win menu
+	LDR R1, ptr_to_change_status
+	MOV R0, #0
+	STRB R0, [R1]
+
 	; redisplay pause menu
+	B sw1_pause
 
-
+;;-------------------------------------------------------------;;
+;; endpoint for all 5 switches after handling
 switch_end:
 	POP {r0-r11, lr}
  	BX lr ; Return
-
-
-
-
-
-
-
+;;;------------------------------------------------------------------------------;;;
 
 
 
@@ -577,6 +702,49 @@ timer_end:
 	POP {r0-r11, lr}
  	BX lr ; Return
 
+;;;------------------------------------------------------------------------------;;;
+
+
+
+
+
+
+
+;;;------------------------------------------------------------------------------;;;
+;;;----------------------------RANDON NUMBER GENERATOR---------------------------;;;
+;;;------------------------------------------------------------------------------;;;
+; Takes in initial arguments in R0
+; Returns resulting pseudo-random number mod 16 in R0
+; Returns 2 or 4 w prob of 10/16 , 6/16 ~~~ 37.5:62.5
+random_generator:
+	PUSH{r2-r4, lr}
+
+	; x ^= x rot> 13
+	ROR R1, R0, #13
+	EOR R1, R0
+
+	; x ^= x>>17
+	LSR R2, R1, #17
+	EOR R2, R1
+
+	; x = x%r1
+	MOV R0, R2
+	MOV R1, #16
+	BL modulus
+
+	; if x <= 6, return 4
+	; else,		 return 2
+	CMP R0, #6
+	BLT gen4
+
+	MOV R1, #2
+	B rand_end
+gen4:
+	MOV R1, #4
+
+rand_end:
+	POP{r2-r4, lr}
+	MOV pc, lr
 ;;;------------------------------------------------------------------------------;;;
 
 
@@ -650,48 +818,6 @@ movement_combine:
 
 	;Thats all folks
 	MOV pc, lr
-
-
-
-;;;------------------------------------------------------------------------------;;;
-;;;----------------------------RANDON NUMBER GENERATOR---------------------------;;;
-;;;------------------------------------------------------------------------------;;;
-; Takes in initial arguments in R0
-; Returns resulting pseudo-random number mod 16 in R0
-; Returns 2 or 4 w prob of 10/16 , 6/16 ~~~ 37.5:62.5
-random_generator:
-	PUSH{r2-r4, lr}
-
-	; x ^= x rot> 13
-	ROR R1, R0, #13
-	EOR R1, R0
-
-	; x ^= x>>17
-	LSR R2, R1, #17
-	EOR R2, R1
-
-	; x = x%r1
-	MOV R0, R2
-	MOV R1, #16
-	BL modulus
-
-	; if x <= 6, return 4
-	; else,		 return 2
-	CMP R0, #6
-	BLT gen4
-
-	MOV R1, #2
-	B rand_end
-gen4:
-	MOV R1, #4
-
-rand_end:
-	POP{r2-r4, lr}
-	MOV pc, lr
-;;;------------------------------------------------------------------------------;;;
-
-
-
 
 
 ;;;------------------------------------------------------------------------------;;;
@@ -936,19 +1062,14 @@ RGB_Compare:
 	BEQ Render2048
 
 ;;;-------Additional functionality-------;;;
-	;In case there is a zero
-	B Render0
+	;In case there is a zero (TODO)
+	MOV R0, R1 ;Move the cursor
+	BL output_string
+	B RGB_Loop
 
 ;;;---------------------Rendering phase------------------------;;;
 ;;; Rendering via string and dox value
 ;;; R0 is the cursor move, while R1 is the block print
-Render0:
-	BL output_string ;Move cursor
-	LDR R0, ptr_to_block0 ;print the current block
-	BL output_string
-	ADD R2, R2, #0x1 ; Increment the counter
-	B RGB_Loop
-
 Render2:
 	BL output_string ;Move cursor
 	LDR R0, ptr_to_block2 ;print the current block
@@ -1020,10 +1141,170 @@ Render2048:
 ;;;---------------------End Render------------------------;;;
 ;;; Only be accessed when R2 = #0x11
 RGB_end:
-	POP {R0, R11, lr}
+	POP {r0-r11, lr}
 	MOV pc, lr
 
 
+
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; KINDOF IGNORE;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+move_Left:
+	PUSH {r0-r11, lr}
+
+
+
+	LDR R4, ptr_to_SQ0
+	LDR R4, [R4]
+	LDR R5, ptr_to_SQ4
+	LDR R6, ptr_to_SQ8
+	LDR R7, ptr_to_SQ12
+
+	LDR R8, ptr_to_SQ1
+	LDR R8, [R8]
+	LDR R9, ptr_to_SQ5
+	LDR R10, ptr_to_SQ9
+	LDR R11, ptr_to_SQ13
+
+	; if right side = 0; do nothing, no merge or slide
+	CMP R8, #0
+	CMP R9, #0
+	CMP R10, #0
+	CMP R11, #0
+
+	; if left side = 0; move right block over to left, new right = 0
+	CMP R4, #0
+	CMP R5, #0
+	CMP R6, #0
+	CMP R7, #0
+
+	; compare values
+
+
+
+
+
+
+	LDR R0, ptr_to_SQ0
+	LDR R2, [R0]
+	LDR R1, ptr_to_SQ1
+	LDR R3, [R1]
+
+	; if empty block to left, just slide
+	CMP R2, #0
+	;BEQ slide_block_left
+
+	; if equal value blocks, merge
+	CMP R2, R3
+	BEQ merge_block_left
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	; second row
+	LDR R0, ptr_to_SQ4
+	LDR R2, [R0]
+	LDR R1, ptr_to_SQ5
+	LDR R3, [R1]
+
+	; if empty block to left, just slide
+	CMP R2, #0
+	;BEQ slide_block_left
+
+	; if equal value blocks, merge
+	CMP R2, R3
+	BEQ merge_block_left
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	; third row
+	LDR R0, ptr_to_SQ8
+	LDR R2, [R0]
+	LDR R1, ptr_to_SQ9
+	LDR R3, [R1]
+
+	; if empty block to left, just slide
+	CMP R2, #0
+	;BEQ slide_block_left
+
+	; if equal value blocks, merge
+	CMP R2, R3
+	BEQ merge_block_left
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	; fourth row
+	LDR R0, ptr_to_SQ12
+	LDR R2, [R0]
+	LDR R1, ptr_to_SQ13
+	LDR R3, [R1]
+
+	; if empty block to left, just slide
+	CMP R2, #0
+	;BEQ slide_block_left
+
+	; if equal value blocks, merge
+	CMP R2, R3
+	BEQ merge_block_left
+
+
+merge_block_left:
+
+	;MUL R2, R2, #2
+	STR R2, [R0]
+
+	MOV R2, #0
+	STR R2, [R1]
+
+
+
+move_Right:
+	PUSH {r0-r11, lr}
+
+merge_block_right:
+
+	;MUL R2, R2, #2
+	STR R2, [R1]
+
+	MOV R2, #0
+	STR R2, [R1]
+
+
+	POP {r0-r11, lr}
+	MOV pc, lr
+
+
+
+move_Up:
+	PUSH {r0-r11, lr}
+
+
+merge_block_up:
+
+	;MUL R2, R2, #2
+	STR R2, [R0]
+
+	MOV R2, #0
+	STR R2, [R1]
+
+	POP {r0-r11, lr}
+	MOV pc, lr
+
+move_Down:
+	PUSH {r0-r11, lr}
+
+
+merge_block_down:
+
+	;MUL R2, R2, #2
+	STR R2, [R1]
+
+	MOV R2, #0
+	STR R2, [R0]
+
+
+	POP {r0-r11, lr}
+	MOV pc, lr
 
 ;------------;
 ML_end:

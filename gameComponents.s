@@ -1,5 +1,7 @@
 
 	.data
+
+	.global block0
 	.global block2
 	.global block4
 	.global block8
@@ -31,6 +33,7 @@
 	.global position_SQ14
 	.global position_SQ15
 
+block0:		.string 27,"[40m     ",27,"[1B",27,"[5D     ",27,"[1B", 27,"[5D     ",27,"[0m", 0x0
 block2: 	.string 27,"[46m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  2  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
 block4: 	.string 27,"[45m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  4  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
 block8: 	.string 27,"[44m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  8  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
