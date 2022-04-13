@@ -23,6 +23,7 @@ notIntError: .string "Error, string Not an integer",0
  	.global illuminate_LEDs
  	.global int2string
 	.global string2int
+	.global merge ;Recently added
 
 ptr_to_notInt: .word notIntError
 
@@ -59,7 +60,7 @@ RxFE: 				.equ 0x10
 
 ; GPIO INTERRUPT CONFIG
 GPIOF:		.equ 0x40000000
-GPIOD:		.equ 0x8
+GPIOD:		.equ 0x08
 GPIOIS: 	.equ 0x404
 GPIOIBE: 	.equ 0x408
 GPIOEV: 	.equ 0x40C
@@ -226,34 +227,34 @@ GPIO_init:
 
 	; rgb output 1,2,3
 	; sw1 input 4
-    LDRB R1, [R2, #DIR]
+    LDR R1, [R2, #DIR]
     ORR R1, #0x0E
     BIC R1, #0x10
-    STRB R1, [R2, #DIR]
+    STR R1, [R2, #DIR]
 
     ; set each pin as digital i/o
-    LDRB R1, [R2, #DEN]
+    LDR R1, [R2, #DEN]
     ORR R1, #0x1E
-    STRB R1, [R2, #DEN]
+    STR R1, [R2, #DEN]
     ; configure pullup resistor for sw1
-    LDRB R1, [R2, #PUR]
+    LDR R1, [R2, #PUR]
     ORR R1, #0x10
-    STRB R1, [R2, #PUR]
+    STR R1, [R2, #PUR]
 
 
     ; port D
-    MOV R2, #0x7000
-    MOVT R2, #0x4000
+    MOV R2, #0x5000
+    MOVT R2, #0x4002
 
 	; sw2-5 input D0-3
-    LDRB R1, [R2, #DIR]
-    BIC R1, #0xF
-    STRB R1, [R2, #DIR]
+    LDR R1, [R2, #DIR]
+    BIC R1, #0x0F
+    STR R1, [R2, #DIR]
 
     ; set each pin as digital i/o
-    LDRB R1, [R2, #DEN]
+    LDR R1, [R2, #DEN]
     ORR R1, #0x0F
-    STRB R1, [R2, #DEN]
+    STR R1, [R2, #DEN]
     ; configure pullup resistor
     ;LDRB R1, [R2, #PUR]
     ;ORR R1, #0x0F
@@ -305,43 +306,43 @@ gpio_interrupt_init:
 	MOV R4, #0x0F
 
 	; edge< / level sensitive
-	LDRB R1, [R0, #GPIOIS]
+	LDR R1, [R0, #GPIOIS]
 	BIC R1, R3
-	STRB R1, [R0, #GPIOIS]
+	STR R1, [R0, #GPIOIS]
 	; edge< / level sensitive
-	LDRB R1, [R2, #GPIOIS]
+	LDR R1, [R2, #GPIOIS]
 	BIC R1, R4
-	STRB R1, [R2, #GPIOIS]
+	STR R1, [R2, #GPIOIS]
 
 
 	; Both / single< edge trigger
-	LDRB R1, [R0, #GPIOIBE]
+	LDR R1, [R0, #GPIOIBE]
 	BIC R1, R3
-	STRB R1, [R0, #GPIOIBE]
+	STR R1, [R0, #GPIOIBE]
 	; Both / single< edge trigger
-	LDRB R1, [R2, #GPIOIBE]
+	LDR R1, [R2, #GPIOIBE]
 	BIC R1, R4
-	STRB R1, [R2, #GPIOIBE]
+	STR R1, [R2, #GPIOIBE]
 
 
 	; Rising< / Falling edge
-	LDRB R1, [R0, #GPIOEV]
+	LDR R1, [R0, #GPIOEV]
 	ORR R1, R3
-	STRB R1, [R0, #GPIOEV]
+	STR R1, [R0, #GPIOEV]
 	; Rising< / Falling edge
-	LDRB R1, [R2, #GPIOEV]
+	LDR R1, [R2, #GPIOEV]
 	ORR R1, R4
-	STRB R1, [R2, #GPIOEV]
+	STR R1, [R2, #GPIOEV]
 
 
 	; mask / unmask<
-	LDRB R1, [R0, #GPIOIM]
+	LDR R1, [R0, #GPIOIM]
 	ORR R1, R3
-	STRB R1, [R0, #GPIOIM]
+	STR R1, [R0, #GPIOIM]
 	; mask / unmask<
-	LDRB R1, [R2, #GPIOIM]
+	LDR R1, [R2, #GPIOIM]
 	ORR R1, R4
-	STRB R1, [R2, #GPIOIM]
+	STR R1, [R2, #GPIOIM]
 
 
 	; allow GPIO port D,F to interrupt processor
@@ -582,6 +583,26 @@ RS_end:
 	POP {R1-R2, lr}
 	mov pc, lr
 
+;----------------------------------------------------;
+; merges the values of R0, and R1 into R0
+; Sets R1 -> zero in the case of a merge, keeps it if not
+merge:
+	PUSH {R2-R11}
+
+	CMP R0, R1	;Determine if mergeable
+	BEQ m_equal
+	B m_end		;Not mergeable end
+
+m_equal:
+	ADD R0, R0, R1	;Combine
+	MOV R1, #0x0	; Reset R1 -> zero
+	MOVT R1, #0x0
+
+m_end:
+	POP {R2-R11}
+	MOV pc, lr
+
+
 
 ;------------------------------------------;
 ; retuns 4-bit pattern of button presses in R0
@@ -592,13 +613,19 @@ read_from_push_btns:
     MOV R1, #0x7000
     MOVT R1, #0x4000
 
+	; input
+    MOV R0, #0x00
+    STRB R0, [R1, #DIR]
+
+	; pullup
+    ;MOV R2, #0x0F
+    ;STRB R2, [R1, #PUR]
+
+PB_poll:
     LDRB R0, [R1, #DATA] ;loading the byte
 
-	;isolate Pins 0-3
-    AND R0, #0xF
-
-	;CMP R0, #0x0
-	;BEQ PB_poll
+	CMP R0, #0x0
+	BEQ PB_poll
 
     POP {lr}
     MOV pc, lr
@@ -610,7 +637,6 @@ read_from_push_btns:
 read_tiva_push_button:
 	PUSH {lr}
 
-	; port F
 	; base address
 	MOV R0, #0x5000
 	MOVT R0, #0x4002
