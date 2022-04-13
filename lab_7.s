@@ -142,6 +142,7 @@ SQ15:	.byte 0x00
 	.global modulus					; r0 % r1
 	.global random1_16				; RNG
  	.global lab7					; main
+ 	.global merge					; smallest subroutine of the movement category
 
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
@@ -156,6 +157,7 @@ ptr_to_timescore_prompt:	.word TIMESCORE_prompt
 ptr_to_score:				.word SCORE
 ptr_to_time:				.word TIME
 
+ptr_to_block0:				.word block0
 ptr_to_block2:				.word block2
 ptr_to_block4:				.word block4
 ptr_to_block8:				.word block8
@@ -578,12 +580,76 @@ timer_end:
 ;;;------------------------------------------------------------------------------;;;
 
 
+;;;------------------------------------------------------------------------------;;;
+;;;------------------------------BLOCK MOVEMENTS---------------------------------;;;
+;;;------------------------------------------------------------------------------;;;
+; Can be called from the UART interrupt handler
+; Seperated into 4 subroutines each havine the (direction)_combine subroutine that
+; is responsable for the merging of the cells, then the overall subroutine which calls
+; the (direction)_combine subroutine 4 times and interacts with the system timer
+
+;----------movement_left-------------;
+; shifts enire board left one square
+; must be called 4 times for complete left shift
+movement_left:
+
+
+;----------movement_right-------------;
+; shifts enire board right one square
+; must be called 4 times for complete right shift
+movement_right:
+
+;----------movement_upward-------------;
+; shifts enire board up one square
+; must be called 4 times for complete upwards shift
+movement_upward:
+
+
+;----------movement_downward-------------;
+; shifts enire board down one square
+; must be called 4 times for complete downwards shift
+movement_downward:
 
 
 
+;-----------------------;
+; merges R4-R7 with the registers R8-R11
+;1	R4 <- R8
+;2	R5 <- R9
+;3	R6 <- R10
+;4	R7 <- R11
+movement_combine:
 
+	; First Merge
+	MOV R0, R4
+	MOV R1, R8
+	BL merge
+	MOV R4, R0
+	MOV R8, R1
 
+	; Second Merge
+	MOV R0, R5
+	MOV R1, R9
+	BL merge
+	MOV R5, R0
+	MOV R9, R1
 
+	; Third Merge
+	MOV R0, R6
+	MOV R1, R10
+	BL merge
+	MOV R6, R0
+	MOV R10, R1
+
+	; Fourth Merge
+	MOV R0, R7
+	MOV R1, R11
+	BL merge
+	MOV R7, R0
+	MOV R11, R1
+
+	;Thats all folks
+	MOV pc, lr
 
 
 
@@ -870,14 +936,19 @@ RGB_Compare:
 	BEQ Render2048
 
 ;;;-------Additional functionality-------;;;
-	;In case there is a zero (TODO)
-	MOV R0, R1 ;Move the cursor
-	BL output_string
-	B RGB_Loop
+	;In case there is a zero
+	B Render0
 
 ;;;---------------------Rendering phase------------------------;;;
 ;;; Rendering via string and dox value
 ;;; R0 is the cursor move, while R1 is the block print
+Render0:
+	BL output_string ;Move cursor
+	LDR R0, ptr_to_block0 ;print the current block
+	BL output_string
+	ADD R2, R2, #0x1 ; Increment the counter
+	B RGB_Loop
+
 Render2:
 	BL output_string ;Move cursor
 	LDR R0, ptr_to_block2 ;print the current block
