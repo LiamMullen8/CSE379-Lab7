@@ -69,8 +69,6 @@
 	.global WIN_BLOCK
 	.global position
 
-	; game mechanics
-	.global merge
 
 
 ; top row show player's time and score
@@ -89,25 +87,25 @@ CHANGE_status:		.byte 0x00
 WIN_BLOCK: .half 2048
 
 ;Data corresponding to square values
-SQ0:	.byte 0x00
-SQ1:	.byte 0x00
-SQ2:	.byte 0x00
-SQ3:	.byte 0x00
+SQ0:	.half 0x00
+SQ1:	.half 0x00
+SQ2:	.half 0x00
+SQ3:	.half 0x00
 
-SQ4:	.byte 0x00
-SQ5:	.byte 0x00
-SQ6:	.byte 0x00
-SQ7:	.byte 0x00
+SQ4:	.half 0x00
+SQ5:	.half 0x00
+SQ6:	.half 0x00
+SQ7:	.half 0x00
 
-SQ8:	.byte 0x00
-SQ9:	.byte 0x00
-SQ10:	.byte 0x00
-SQ11:	.byte 0x00
+SQ8:	.half 0x00
+SQ9:	.half 0x00
+SQ10:	.half 0x00
+SQ11:	.half 0x00
 
-SQ12:	.byte 0x00
-SQ13:	.byte 0x00
-SQ14:	.byte 0x00
-SQ15:	.byte 0x00
+SQ12:	.half 0x00
+SQ13:	.half 0x00
+SQ14:	.half 0x00
+SQ15:	.half 0x00
 
 
 ;;-----------------------------------------------------------;;
@@ -134,6 +132,12 @@ SQ15:	.byte 0x00
 	.global modulus					; r0 % r1
 	.global random1_16				; RNG
  	.global lab7					; main
+
+ 	; game mechanics
+	.global merge
+ 	.global clear_game
+
+
 
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
@@ -377,18 +381,17 @@ Switch_Handler:
 	; check which switch was pressed
 
 	BL read_tiva_push_button
-	CMP R0, #0x1
+	CMP R0, #0x0
 	BEQ SW1_pressed
 
-
 	BL read_from_push_btns
-	CMP R0, #0x1		;0xE, possible that its 1s comp bc of pullup resistors
+	CMP R0, #0x8		;0xE, possible that its 1s comp bc of pullup resistors
 	BEQ SW2_pressed
-	CMP R0, #0x2		;0xD
+	CMP R0, #0x4		;0xD
 	BEQ SW3_pressed
-	CMP R0, #0x4		;0xB
+	CMP R0, #0x2		;0xB
 	BEQ SW4_pressed
-	CMP R0, #0x8		;0x7
+	CMP R0, #0x1		;0x7
 	BEQ SW5_pressed
 
 
@@ -482,14 +485,18 @@ SW2_pressed:
 
 
 sw2_quit:
-	; new timer
-	; new score
-	; clear pointers to SQ's
+
+	; zero the timer, score, and game board
+	BL clear_game
+
 	; display start menu
+	; TODO
+
 	B switch_end
 
 sw2_change_win:
 
+	; update win block to 2048
 	LDR R1, ptr_to_win_block
 	MOV R0, #2048
 	STRH R0, [R1]
@@ -533,10 +540,12 @@ SW3_pressed:
 
 
 sw3_restart:
-	; new timer
-	; new score
-	; clear pointers to SQ's
+
+	; zero the timer, score, and game board
+	BL clear_game
+
 	; display start menu
+
 	B switch_end
 
 sw3_change_win:
@@ -585,9 +594,15 @@ SW4_pressed:
 sw4_resume:
 
 	; clear pause menu
-	LDR R0, ptr_to_clear_screen
+	LDR R1, ptr_to_clear_screen
 	BL output_string
+
 	; rerender current board,time,score
+	LDR R1, ptr_to_timescore_prompt
+	BL output_string
+
+	LDR R1, ptr_to_game_board
+	BL output_string
 
 	; clear paused flag
 	LDR R0, ptr_to_paused_status
@@ -709,8 +724,54 @@ timer_end:
 ;;;------------------------------------------------------------------------------;;;
 
 
+clear_game:
+	PUSH {r0-r2, lr}
 
+	; new timer
+	LDR R1, ptr_to_time
+	MOV R0, #0
+	STRB R0, [R1]
+	; new score
+	LDR R1, ptr_to_score
+	MOV R0, #0
+	STRB R0, [R1]
 
+	; clear SQ's values
+	LDR R2, ptr_to_SQ0
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ1
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ2
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ3
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ4
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ5
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ6
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ7
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ8
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ9
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ10
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ11
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ12
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ13
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ14
+	STRB R0, [R2]
+	LDR R2, ptr_to_SQ15
+	STRB R0, [R2]
+
+	POP {r0-r2, lr}
+	MOV pc, lr
 
 
 
@@ -1149,164 +1210,108 @@ RGB_end:
 	MOV pc, lr
 
 
-
-
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; KINDOF IGNORE;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 move_Left:
 	PUSH {r0-r11, lr}
-
-
-
 	LDR R4, ptr_to_SQ0
 	LDR R4, [R4]
 	LDR R5, ptr_to_SQ4
 	LDR R6, ptr_to_SQ8
 	LDR R7, ptr_to_SQ12
-
 	LDR R8, ptr_to_SQ1
 	LDR R8, [R8]
 	LDR R9, ptr_to_SQ5
 	LDR R10, ptr_to_SQ9
 	LDR R11, ptr_to_SQ13
-
 	; if right side = 0; do nothing, no merge or slide
 	CMP R8, #0
 	CMP R9, #0
 	CMP R10, #0
 	CMP R11, #0
-
 	; if left side = 0; move right block over to left, new right = 0
 	CMP R4, #0
 	CMP R5, #0
 	CMP R6, #0
 	CMP R7, #0
-
 	; compare values
-
-
-
-
-
-
 	LDR R0, ptr_to_SQ0
 	LDR R2, [R0]
 	LDR R1, ptr_to_SQ1
 	LDR R3, [R1]
-
 	; if empty block to left, just slide
 	CMP R2, #0
 	;BEQ slide_block_left
-
 	; if equal value blocks, merge
 	CMP R2, R3
 	BEQ merge_block_left
-
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	; second row
 	LDR R0, ptr_to_SQ4
 	LDR R2, [R0]
 	LDR R1, ptr_to_SQ5
 	LDR R3, [R1]
-
 	; if empty block to left, just slide
 	CMP R2, #0
 	;BEQ slide_block_left
-
 	; if equal value blocks, merge
 	CMP R2, R3
 	BEQ merge_block_left
-
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	; third row
 	LDR R0, ptr_to_SQ8
 	LDR R2, [R0]
 	LDR R1, ptr_to_SQ9
 	LDR R3, [R1]
-
 	; if empty block to left, just slide
 	CMP R2, #0
 	;BEQ slide_block_left
-
 	; if equal value blocks, merge
 	CMP R2, R3
 	BEQ merge_block_left
-
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	; fourth row
 	LDR R0, ptr_to_SQ12
 	LDR R2, [R0]
 	LDR R1, ptr_to_SQ13
 	LDR R3, [R1]
-
 	; if empty block to left, just slide
 	CMP R2, #0
 	;BEQ slide_block_left
-
 	; if equal value blocks, merge
 	CMP R2, R3
 	BEQ merge_block_left
-
-
 merge_block_left:
-
 	;MUL R2, R2, #2
 	STR R2, [R0]
-
 	MOV R2, #0
 	STR R2, [R1]
-
-
-
 move_Right:
 	PUSH {r0-r11, lr}
-
 merge_block_right:
-
 	;MUL R2, R2, #2
 	STR R2, [R1]
-
 	MOV R2, #0
 	STR R2, [R1]
-
-
 	POP {r0-r11, lr}
 	MOV pc, lr
-
-
-
 move_Up:
 	PUSH {r0-r11, lr}
-
-
 merge_block_up:
-
 	;MUL R2, R2, #2
 	STR R2, [R0]
-
 	MOV R2, #0
 	STR R2, [R1]
-
 	POP {r0-r11, lr}
 	MOV pc, lr
-
 move_Down:
 	PUSH {r0-r11, lr}
-
-
 merge_block_down:
-
 	;MUL R2, R2, #2
 	STR R2, [R1]
-
 	MOV R2, #0
 	STR R2, [R0]
-
-
 	POP {r0-r11, lr}
 	MOV pc, lr
 
