@@ -816,10 +816,33 @@ rand_end:
 ;;;------------------------------------------------------------------------------;;;
 ;;;------------------------------BLOCK MOVEMENTS---------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
-; Can be called from the UART interrupt handler
-; Seperated into 4 subroutines each havine the (direction)_combine subroutine that
-; is responsable for the merging of the cells, then the overall subroutine which calls
-; the (direction)_combine subroutine 4 times and interacts with the system timer
+;;;		HIEARCHY OF SUBROUTINES
+; Refering to the order of subroutine calls LOG -> BRANCH -> TWIG -> LEAF
+; ### Notice all LOG level subroutines will need to be called four times for
+; for one complete movement (reset the A-H) ptrs between movements
+;;;----ROOT-----;;;
+;Interact with the timer to display the movement of the squares across the gameboard
+;;; movement_left
+;;; movement_right
+;;; movement_down
+;;; movement_up
+;;;-----LOG-----;;;
+;Process one call of the merge sweeping merge algorithm, must be called 4 times for complete movement
+;;; move_left
+;;; move_right
+;;; move_down
+;;; move_up
+;;;----BRANCH---;;;
+;Optimize out cases of Zero's being moved around
+;;; shift_ptrs
+;;;----TWIG-----;;;
+;Deals with capped merges to prevent over merging
+;;; merge_ptrs
+;;; move_ptrs
+;;;----LEAF-----;;;
+; Simply merges two values
+;;; merge
+
 
 ;----------movement_left-------------;
 ; shifts enire board left one square
@@ -843,45 +866,117 @@ movement_upward:
 ; must be called 4 times for complete downwards shift
 movement_downward:
 
+;;;---------------------------BRANCH LEVEL--------------------------------;;;
+;----------shift_ptrs--------------------;
+; Parameters (pass in)
+; R0 holds ptr_to_SQX
+; R1 holds ptr_to_SQY
+; R2 holds ptr_to_@	(A,C,E,G)
+; R3 holds ptr_to_% (B,D,F,H)
+shift_ptrs:
+	PUSH {R4-R11}
+	;2A Determine if SQX holds Zero
+	LDR R4, [R0] ;Get value of SQX
+	CMP R4, #0x0 ;Compare
+	BEQ SP_move_ptrs
 
+	;2B Determine if SQY holds Zero
+	LDR R4, [R1] ;Get value of SQY
+	CMP R4, #0x0	 ;Compare
+	BEQ SP_move_ptrs
 
-;-----------------------;
-; merges R4-R7 with the registers R8-R11
-;1	R4 <- R8
-;2	R5 <- R9
-;3	R6 <- R10
-;4	R7 <- R11
-movement_combine:
+SP_merge_ptrs:;Jump to merge_ptrs (no zero present)
+	BL merge_ptrs
+	B SP_end
 
-	; First Merge
-	MOV R0, R4
-	MOV R1, R8
+SP_move_ptrs: ;Jump to move_ptrs (one zero present)
+	BL move_ptrs
+	B SP_end
+
+SP_end: ;Ending shift_ptrs
+	POP {R4-R11}
+	MOV pc, lr
+
+;;;----------------------------TWIG LEVEL---------------------------------;;;
+;----------merge_ptrs--------------------;
+; Parameters (pass in)
+; R0 holds ptr_to_SQX
+; R1 holds ptr_to_SQY
+; R2 holds ptr_to_@	(A,C,E,G)
+; R3 holds ptr_to_% (B,D,F,H)
+merge_ptrs:
+	PUSH {R4-R11}
+	;3 Check that SQX != @
+	LDR R4, [R2] ;Load the value of ptr_to_@
+	CMP R4, R0
+	BEQ MRP_end ;4B no merge
+
+	;3 Check that SQX != %
+	LDR R4, [R3] ;Load the value of ptr_to_%
+	CMP R4, R1
+	BEQ MRP_end ;4B no merge
+
+	;4A Check if @ is null
+	LDR R4, [R2]
+
+	;### first time using If-Then might be buggy ###
+	CMP R4, #0x0
+	ITE NE
+	STRNE R3, [R0] ;5A Set @ = SQX (first capped merge of row)
+	STREQ R2, [R0] ;5B Set % = SQX (Second capped merge of row)
+	;### first time using If-Then might be buggy ###
+
+	;6 set up and execute the merge
+	MOV R10, R0	;Preserve ptr_to_SQX
+	MOV R11, R1	;Preserve ptr_to_SQY
+	LDR R0, [R10] ;Load value at ptr_to_SQX
+	LDR R1, [R11] ;Load value at ptr_to_SQY
+
 	BL merge
-	MOV R4, R0
-	MOV R8, R1
 
-	; Second Merge
-	MOV R0, R5
-	MOV R1, R9
+	STR R0, [R10] ;Store merged value in SQX into SQX
+	STR R1, [R11] ;Store merged value in SQY into SQY
+
+MRP_end:
+	POP {R4-R11}
+	MOV pc, lr
+
+;----------move_ptrs--------------------;
+; Parameters (pass in)
+; R0 holds ptr_to_SQX
+; R1 holds ptr_to_SQY
+; R2 holds ptr_to_@	(A,C,E,G)
+; R3 holds ptr_to_% (B,D,F,H)
+move_ptrs:
+
+	;3A Check SQY != @
+	CMP R1, R2
+	BEQ MVP_move_capped_ptr_0 ;@
+
+	;3B Check SQY != B
+	CMP R1, R3
+	BEQ MVP_move_capped_ptr_1 ;%
+
+MVP_merge:
+	;Merge Set up
+	MOV R10, R0 ;Preserve ptr_to_SQX
+	MOV R11, R1 ;Preserve ptr_to_SQY
+
 	BL merge
-	MOV R5, R0
-	MOV R9, R1
 
-	; Third Merge
-	MOV R0, R6
-	MOV R1, R10
-	BL merge
-	MOV R6, R0
-	MOV R10, R1
+	STR R0, [R10] ;Store merged value in SQX into SQX
+	STR R1, [R11] ;Store merged value in SQY into SQY
+	B MVP_end ; Done with move
 
-	; Fourth Merge
-	MOV R0, R7
-	MOV R1, R11
-	BL merge
-	MOV R7, R0
-	MOV R11, R1
 
-	;Thats all folks
+MVP_move_capped_ptr_0: ;4A SQY is pointed to by @
+	LDR R0, [R2] ;Update @ to point to SQX (SQ in the direction of the move)
+
+MVP_move_capped_ptr_1: ;4A SQY is pointed to by %
+	LDR R0, [R3] ;Update % to point ot SQX (SQ in the direction of the move)
+
+MVP_end:
+	POP {R4-R11}
 	MOV pc, lr
 
 
