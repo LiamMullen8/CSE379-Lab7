@@ -892,7 +892,7 @@ movement_combine:
 ;;; to putty in the order they are defined
 
 render_game_board:
-	PUSH {R0-R11, lr}
+	PUSH {R0-R11}
 
 	; Order of ptrs after the loading phase
 	;------Stack-------
@@ -919,26 +919,26 @@ render_game_board:
 	;PUSH is actually STMDB SP! <Register List>
 
 	;Load Row 4 (12,13,14,15)
-	LDR R0, ptr_to_SQ0
-	LDR R1, ptr_to_SQ1
-	LDR R2, ptr_to_SQ2
-	LDR R3, ptr_to_SQ3
+	LDR R0, ptr_to_SQ12
+	LDR R1, ptr_to_SQ13
+	LDR R2, ptr_to_SQ14
+	LDR R3, ptr_to_SQ15
 	;push to stack
 	STMDB SP!, {R0-R3}
 
 	;Load Row 3 (8,9,10,11)
-	LDR R0, ptr_to_SQ0
-	LDR R1, ptr_to_SQ1
-	LDR R2, ptr_to_SQ2
-	LDR R3, ptr_to_SQ3
+	LDR R0, ptr_to_SQ8
+	LDR R1, ptr_to_SQ9
+	LDR R2, ptr_to_SQ10
+	LDR R3, ptr_to_SQ11
 	;push to stack
 	STMDB SP!, {R0-R3}
 
 	;Load Row 2 (4,5,6,7)
-	LDR R0, ptr_to_SQ0
-	LDR R1, ptr_to_SQ1
-	LDR R2, ptr_to_SQ2
-	LDR R3, ptr_to_SQ3
+	LDR R0, ptr_to_SQ4
+	LDR R1, ptr_to_SQ5
+	LDR R2, ptr_to_SQ6
+	LDR R3, ptr_to_SQ7
 	;push to stack
 	STMDB SP!, {R0-R3}
 
@@ -953,10 +953,6 @@ render_game_board:
 	;At this point the pointers are all loaded onto the stack
 	;Using R1 for the rows value
 
-	;Using ANSI instead
-	;LDR R1, ptr_to_mov_begin
-	BL output_string
-
 	MOV R2, #0x0 ;start i
 
 RGB_Loop:
@@ -964,13 +960,13 @@ RGB_Loop:
 	; R1 ~ Value of the SQ
 	; R2 ~ counter
 
-	;Loading the value (0-2048) from the last pop into R1
-	LDM SP!, {R0}
-	LDR R1, [R0]
-
 	;Checking if loop complete
-	CMP R2, #0x11
+	CMP R2, #0x10
 	BEQ RGB_end
+
+	;Loading the value (0-2048) from the last pop into R1
+	LDMIA SP!, {R0}
+	LDR R1, [R0]
 
 	;Assigning position
 	CMP R2, #0x0
@@ -1128,13 +1124,18 @@ RGB_Compare:
 
 ;;;-------Additional functionality-------;;;
 	;In case there is a zero (TODO)
-	MOV R0, R1 ;Move the cursor
-	BL output_string
-	B RGB_Loop
+	B Render0
 
 ;;;---------------------Rendering phase------------------------;;;
 ;;; Rendering via string and dox value
 ;;; R0 is the cursor move, while R1 is the block print
+Render0:
+	BL output_string ;Move Cursor
+	LDR R0, ptr_to_block0 ;print the current block
+	BL output_string
+	ADD R2, R2, #0x1	;Increment the counter
+	B RGB_Loop
+
 Render2:
 	BL output_string ;Move cursor
 	LDR R0, ptr_to_block2 ;print the current block
@@ -1204,9 +1205,9 @@ Render2048:
 	B RGB_Loop
 
 ;;;---------------------End Render------------------------;;;
-;;; Only be accessed when R2 = #0x11
+;;; Only be accessed when R2 = #0x10
 RGB_end:
-	POP {r0-r11, lr}
+	POP {r0-r11}
 	MOV pc, lr
 
 
