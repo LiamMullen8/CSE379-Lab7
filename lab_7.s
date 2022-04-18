@@ -58,6 +58,16 @@
 	.global position_SQ13
 	.global position_SQ14
 	.global position_SQ15
+	
+	; Merge flags (meta data based on SQ's)
+	.global merge_A
+	.global merge_B
+	.global merge_C
+	.global merge_D
+	.global merge_E
+	.global merge_F
+	.global merge_G
+	.global merge_H
 
 	; meta
 	.global TIMESCORE_prompt
@@ -87,25 +97,35 @@ CHANGE_status:		.byte 0x00
 WIN_BLOCK: .half 2048
 
 ;Data corresponding to square values
-SQ0:	.half 0x00
-SQ1:	.half 0x00
-SQ2:	.half 0x00
-SQ3:	.half 0x00
+SQ0:	.word 0x00
+SQ1:	.word 0x00
+SQ2:	.word 0x00
+SQ3:	.word 0x00
 
-SQ4:	.half 0x00
-SQ5:	.half 0x00
-SQ6:	.half 0x00
-SQ7:	.half 0x00
+SQ4:	.word 0x00
+SQ5:	.word 0x00
+SQ6:	.word 0x00
+SQ7:	.word 0x00
 
-SQ8:	.half 0x00
-SQ9:	.half 0x00
-SQ10:	.half 0x00
-SQ11:	.half 0x00
+SQ8:	.word 0x00
+SQ9:	.word 0x00
+SQ10:	.word 0x00
+SQ11:	.word 0x00
 
-SQ12:	.half 0x00
-SQ13:	.half 0x00
-SQ14:	.half 0x00
-SQ15:	.half 0x00
+SQ12:	.word 0x00
+SQ13:	.word 0x00
+SQ14:	.word 0x00
+SQ15:	.word 0x00
+
+; Merge Pointers
+merge_A:		.word 0x00000000
+merge_B:		.word 0x00000000
+merge_C:		.word 0x00000000
+merge_D:		.word 0x00000000
+merge_E:		.word 0x00000000
+merge_F:		.word 0x00000000
+merge_G:		.word 0x00000000
+merge_H:		.word 0x00000000
 
 
 ;;-----------------------------------------------------------;;
@@ -133,8 +153,17 @@ SQ15:	.half 0x00
 	.global random1_16				; RNG
  	.global lab7					; main
 
+	;Movement Subroutines
+ 	.global move_left
+ 	.global move_right
+ 	.global move_up
+ 	.global move_down
+ 	.global shift_ptrs
+ 	.global move_ptrs
+ 	.global merge_ptrs
+ 	.global merge
+
  	; game mechanics
-	.global merge
  	.global clear_game
 
 
@@ -186,6 +215,17 @@ ptr_to_SQ12: 				.word SQ12
 ptr_to_SQ13: 				.word SQ13
 ptr_to_SQ14: 				.word SQ14
 ptr_to_SQ15: 				.word SQ15
+
+;ptrs to meta data
+ptr_to_merge_A:		.word merge_A
+ptr_to_merge_B:		.word merge_B
+ptr_to_merge_C:		.word merge_C
+ptr_to_merge_D:		.word merge_D
+ptr_to_merge_E:		.word merge_E
+ptr_to_merge_F:		.word merge_F
+ptr_to_merge_G:		.word merge_G
+ptr_to_merge_H:		.word merge_H
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ptr_to_position_SQ0: 		.word position_SQ0
@@ -813,6 +853,7 @@ rand_end:
 ;;;------------------------------------------------------------------------------;;;
 
 
+
 ;;;------------------------------------------------------------------------------;;;
 ;;;------------------------------BLOCK MOVEMENTS---------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
@@ -843,29 +884,353 @@ rand_end:
 ; Simply merges two values
 ;;; merge
 
-
+;;;-----------------------------LOG LEVEL--------------------------------;;;
 ;----------movement_left-------------;
 ; shifts enire board left one square
 ; must be called 4 times for complete left shift
-movement_left:
+move_left:
+	PUSH {R4-R11}
+;---------First Two Blocks-----------;
+	;Set up R0-R3 for the First row
+	LDR R0, ptr_to_SQ0
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second row
+	LDR R0, ptr_to_SQ4
+	LDR R1, ptr_to_SQ5
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third row
+	LDR R0, ptr_to_SQ8
+	LDR R1, ptr_to_SQ9
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth row
+	LDR R0, ptr_to_SQ12
+	LDR R1, ptr_to_SQ13
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;---------Second Two Blocks----------;
+	;Set up R0-R3 for the First row
+	LDR R0, ptr_to_SQ1
+	LDR R1, ptr_to_SQ2
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second row
+	LDR R0, ptr_to_SQ5
+	LDR R1, ptr_to_SQ6
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third row
+	LDR R0, ptr_to_SQ9
+	LDR R1, ptr_to_SQ10
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth row
+	LDR R0, ptr_to_SQ13
+	LDR R1, ptr_to_SQ14
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;---------Third Two Blocks-----------;
+	;Set up R0-R3 for the First row
+	LDR R0, ptr_to_SQ2
+	LDR R1, ptr_to_SQ3
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second row
+	LDR R0, ptr_to_SQ6
+	LDR R1, ptr_to_SQ7
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third row
+	LDR R0, ptr_to_SQ10
+	LDR R1, ptr_to_SQ11
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth row
+	LDR R0, ptr_to_SQ14
+	LDR R1, ptr_to_SQ15
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
 
-
+;-----End of Move Left-----;
+	POP {R4-R11}
+	MOV pc,lr
+	
+	
 ;----------movement_right-------------;
 ; shifts enire board right one square
 ; must be called 4 times for complete right shift
-movement_right:
+move_right:
+	PUSH {R4-R11}
+;---------First Two Blocks-----------;
+	;Set up R0-R3 for the First row
+	LDR R0, ptr_to_SQ3
+	LDR R1, ptr_to_SQ2
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second row
+	LDR R0, ptr_to_SQ7
+	LDR R1, ptr_to_SQ6
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third row
+	LDR R0, ptr_to_SQ11
+	LDR R1, ptr_to_SQ10
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth row
+	LDR R0, ptr_to_SQ15
+	LDR R1, ptr_to_SQ14
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;---------Second Two Blocks-----------;
+	;Set up R0-R3 for the First row
+	LDR R0, ptr_to_SQ2
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second row
+	LDR R0, ptr_to_SQ6
+	LDR R1, ptr_to_SQ5
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third row
+	LDR R0, ptr_to_SQ10
+	LDR R1, ptr_to_SQ9
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth row
+	LDR R0, ptr_to_SQ14
+	LDR R1, ptr_to_SQ13
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+
+;---------Third Two Blocks-----------;
+	;Set up R0-R3 for the First row
+	LDR R0, ptr_to_SQ1
+	LDR R1, ptr_to_SQ0
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second row
+	LDR R0, ptr_to_SQ5
+	LDR R1, ptr_to_SQ4
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third row
+	LDR R0, ptr_to_SQ9
+	LDR R1, ptr_to_SQ8
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth row
+	LDR R0, ptr_to_SQ13
+	LDR R1, ptr_to_SQ12
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;-----End of Move Right-----;
+	POP {R4-R11}
+	MOV pc,lr
 
 ;----------movement_upward-------------;
 ; shifts enire board up one square
 ; must be called 4 times for complete upwards shift
-movement_upward:
-
-
+move_upward:
+;---------First Two Blocks-----------;
+	;Set up R0-R3 for the First Column
+	LDR R0, ptr_to_SQ0
+	LDR R1, ptr_to_SQ4
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second Column
+	LDR R0, ptr_to_SQ1
+	LDR R1, ptr_to_SQ5
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third Column
+	LDR R0, ptr_to_SQ2
+	LDR R1, ptr_to_SQ6
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth Column
+	LDR R0, ptr_to_SQ3
+	LDR R1, ptr_to_SQ7
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+;---------Second Two Blocks-----------;
+	;Set up R0-R3 for the First Column
+	LDR R0, ptr_to_SQ4
+	LDR R1, ptr_to_SQ8
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second Column
+	LDR R0, ptr_to_SQ5
+	LDR R1, ptr_to_SQ9
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third Column
+	LDR R0, ptr_to_SQ6
+	LDR R1, ptr_to_SQ10
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth Column
+	LDR R0, ptr_to_SQ7
+	LDR R1, ptr_to_SQ11
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+;---------Third Two Blocks-----------;
+	;Set up R0-R3 for the First Column
+	LDR R0, ptr_to_SQ8
+	LDR R1, ptr_to_SQ12
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second Column
+	LDR R0, ptr_to_SQ9
+	LDR R1, ptr_to_SQ13
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third Column
+	LDR R0, ptr_to_SQ10
+	LDR R1, ptr_to_SQ14
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth Column
+	LDR R0, ptr_to_SQ11
+	LDR R1, ptr_to_SQ15
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;-----End of Move Up-----;
+	POP {R4-R11}
+	MOV pc,lr
+	
 ;----------movement_downward-------------;
 ; shifts enire board down one square
 ; must be called 4 times for complete downwards shift
-movement_downward:
-
+move_downward:
+	PUSH {R4-R11}
+;---------First Two Blocks-----------;
+	;Set up R0-R3 for the First Column
+	LDR R0, ptr_to_SQ12
+	LDR R1, ptr_to_SQ8
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second Column
+	LDR R0, ptr_to_SQ13
+	LDR R1, ptr_to_SQ9
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third Column
+	LDR R0, ptr_to_SQ14
+	LDR R1, ptr_to_SQ10
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth Column
+	LDR R0, ptr_to_SQ15
+	LDR R1, ptr_to_SQ11
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;---------Second Two Blocks-----------;
+	;Set up R0-R3 for the First Column
+	LDR R0, ptr_to_SQ8
+	LDR R1, ptr_to_SQ4
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second Column
+	LDR R0, ptr_to_SQ9
+	LDR R1, ptr_to_SQ5
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third Column
+	LDR R0, ptr_to_SQ10
+	LDR R1, ptr_to_SQ6
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth Column
+	LDR R0, ptr_to_SQ11
+	LDR R1, ptr_to_SQ7
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;---------Third Two Blocks-----------;
+	;Set up R0-R3 for the First Column
+	LDR R0, ptr_to_SQ4
+	LDR R1, ptr_to_SQ0
+	LDR R2, ptr_to_merge_A
+	LDR R3, ptr_to_merge_B
+	BL shift_ptrs
+	;Set up R0-R3 for the Second Column
+	LDR R0, ptr_to_SQ5
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	BL shift_ptrs
+	;Set up R0-R3 for the Third Column
+	LDR R0, ptr_to_SQ6
+	LDR R1, ptr_to_SQ2
+	LDR R2, ptr_to_merge_E
+	LDR R3, ptr_to_merge_F
+	BL shift_ptrs
+	;Set up R0-R3 for the Fourth Column
+	LDR R0, ptr_to_SQ7
+	LDR R1, ptr_to_SQ3
+	LDR R2, ptr_to_merge_G
+	LDR R3, ptr_to_merge_H
+	BL shift_ptrs
+	
+;-----End of Move Up-----;
+	POP {R4-R11}
+	MOV pc,lr
+	
 ;;;---------------------------BRANCH LEVEL--------------------------------;;;
 ;----------shift_ptrs--------------------;
 ; Parameters (pass in)
@@ -978,6 +1343,7 @@ MVP_move_capped_ptr_1: ;4A SQY is pointed to by %
 MVP_end:
 	POP {R4-R11}
 	MOV pc, lr
+
 
 
 ;;;------------------------------------------------------------------------------;;;
