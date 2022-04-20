@@ -975,8 +975,8 @@ get_position:
 get_block_value:
 
 	; if position already occupied, reroll
-	LDRB R2, [R2]
-	CMP R2, #0
+	LDRB R3, [R2]
+	CMP R3, #0
 	BNE get_random
 
 	; go to board position
@@ -986,6 +986,9 @@ get_block_value:
 	ITE EQ
 	LDREQ R0, ptr_to_block2
 	LDRNE R0, ptr_to_block4
+
+	;update tracking
+	STR R1, [R2]
 
 	; render block
 	BL output_string
