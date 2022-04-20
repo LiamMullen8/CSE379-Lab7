@@ -33,7 +33,7 @@
 	.global position_SQ14
 	.global position_SQ15
 
-block0:		.string 27,"[40m     ",27,"[1B",27,"[5D     ",27,"[1B", 27,"[5D     ",27,"[0m", 0x0
+block0:		.string 27,"[40m",27,"[37m     ",27,"[1B",27,"[5D     ",27,"[1B", 27,"[5D     ",27,"[0m", 0x0
 block2: 	.string 27,"[46m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  2  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
 block4: 	.string 27,"[45m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  4  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
 block8: 	.string 27,"[44m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m  8  ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
@@ -69,7 +69,7 @@ game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
 position_SQ0:	.string 27, "[3;2f",0
 position_SQ1:	.string 27, "[3;8f",0
 position_SQ2:	.string 27, "[3;14f",0
-position_SQ3:	.string 27, "[3,22f",0
+position_SQ3:	.string 27, "[3;20f",0
 
 position_SQ4:	.string 27, "[7;2f",0
 position_SQ5:	.string 27, "[7;8f",0

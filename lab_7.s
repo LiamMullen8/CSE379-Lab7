@@ -156,8 +156,8 @@ merge_H:		.word 0x00000000
 	;Movement Subroutines
  	.global move_left
  	.global move_right
- 	.global move_up
- 	.global move_down
+ 	.global move_upward
+ 	.global move_downward
  	.global shift_ptrs
  	.global move_ptrs
  	.global merge_ptrs
@@ -282,24 +282,10 @@ lab7:
 ;	BL output_string
 
 l:
-	MOV R0, #0x4
 	BL spawn_random_block
-	MOV R0, #0xE
 	BL spawn_random_block
-	MOV R0, #0x2
 	BL spawn_random_block
-	MOV R0, #0x7
 	BL spawn_random_block
-	MOV R0, #0x1
-	BL spawn_random_block
-	MOV R0, #0x8
-	BL spawn_random_block
-	MOV R0, #0xB
-	BL spawn_random_block
-	MOV R0, #0x5
-	BL spawn_random_block
-	MOV R0, #0x1a97
-	MOVT R0, #0xb29d
 	BL spawn_random_block
 	b l
 
@@ -366,6 +352,12 @@ clear_game:
 ; Returns 2 or 4 w prob of 10/16 , 6/16 ~~~ 37.5:62.5
 random_generator:
 	PUSH{lr}
+
+	; get timer value
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+	; GPTMTAV
+	LDR R0, [R0, #0x050]
 
 	; x ^= x rot> 13
 	ROR R1, R0, #13
@@ -894,76 +886,98 @@ MVP_end:
 spawn_random_block:
 	PUSH {lr}
 
+get_random:
 	; seed in R0
 	BL random_generator
 
 get_position:
 	CMP R0, #0x0
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ0
+	LDREQ R2, ptr_to_SQ0
 	BEQ get_block_value
 	CMP R0, #0x1
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ1
+	LDREQ R2, ptr_to_SQ1
 	BEQ get_block_value
 	CMP R0, #0x2
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ2
+	LDREQ R2, ptr_to_SQ2
 	BEQ get_block_value
 	CMP R0, #0x3
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ3
+	LDREQ R2, ptr_to_SQ3
 	BEQ get_block_value
 	CMP R0, #0x4
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ4
+	LDREQ R2, ptr_to_SQ4
 	BEQ get_block_value
 	CMP R0, #0x5
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ5
+	LDREQ R2, ptr_to_SQ5
 	BEQ get_block_value
 	CMP R0, #0x6
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ6
+	LDREQ R2, ptr_to_SQ6
 	BEQ get_block_value
 	CMP R0, #0x7
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ7
+	LDREQ R2, ptr_to_SQ7
 	BEQ get_block_value
 	CMP R0, #0x8
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ8
+	LDREQ R2, ptr_to_SQ8
 	BEQ get_block_value
 	CMP R0, #0x9
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ9
+	LDREQ R2, ptr_to_SQ9
 	BEQ get_block_value
 	CMP R0, #0xA
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ10
+	LDREQ R2, ptr_to_SQ10
 	BEQ get_block_value
 	CMP R0, #0xB
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ11
+	LDREQ R2, ptr_to_SQ11
 	BEQ get_block_value
 	CMP R0, #0xC
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ12
+	LDREQ R2, ptr_to_SQ12
 	BEQ get_block_value
 	CMP R0, #0xD
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ13
+	LDREQ R2, ptr_to_SQ13
 	BEQ get_block_value
 	CMP R0, #0xE
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ14
+	LDREQ R2, ptr_to_SQ14
 	BEQ get_block_value
 	CMP R0, #0xF
-	IT EQ
+	ITT EQ
 	LDREQ R0, ptr_to_position_SQ15
+	LDREQ R2, ptr_to_SQ15
 	BEQ get_block_value
 
 get_block_value:
+
+	; if position already occupied, reroll
+	LDRB R2, [R2]
+	CMP R2, #0
+	BNE get_random
 
 	; go to board position
 	BL output_string
@@ -973,6 +987,7 @@ get_block_value:
 	LDREQ R0, ptr_to_block2
 	LDRNE R0, ptr_to_block4
 
+	; render block
 	BL output_string
 
 	POP {lr}
@@ -1142,73 +1157,6 @@ RGB_Loop:
 	IT EQ
 	LDREQ R0, ptr_to_position_SQ15
 	BEQ RGB_Compare
-
-;;;---------------------Set up cursor movement------------------------;;;
-;;; Based upon the R2 register (AKA the order of the blocks) the cursor movement
-;;; will be mapped to predetermined SQ
-;RGB_pos_SQ0:
-;	LDR R0, ptr_to_position_SQ0
-;	B RGB_Compare
-
-;RGB_pos_SQ1:
-;	LDR R0, ptr_to_position_SQ1
-;	B RGB_Compare
-
-;RGB_pos_SQ2:
-;	LDR R0, ptr_to_position_SQ2
-;	B RGB_Compare
-
-;RGB_pos_SQ3:
-;	LDR R0, ptr_to_position_SQ3
-;	B RGB_Compare
-
-;RGB_pos_SQ4:
-;	LDR R0, ptr_to_position_SQ4
-;	B RGB_Compare
-
-;RGB_pos_SQ5:
-;	LDR R0, ptr_to_position_SQ5
-;	B RGB_Compare
-
-;RGB_pos_SQ6:
-;	LDR R0, ptr_to_position_SQ6
-;	B RGB_Compare
-
-;RGB_pos_SQ7:
-;	LDR R0, ptr_to_position_SQ7
-;	B RGB_Compare
-
-;RGB_pos_SQ8:
-;	LDR R0, ptr_to_position_SQ8
-;	B RGB_Compare
-
-;RGB_pos_SQ9:
-;	LDR R0, ptr_to_position_SQ9
-;	B RGB_Compare
-
-;RGB_pos_SQ10:
-;	LDR R0, ptr_to_position_SQ10
-;	B RGB_Compare
-
-;RGB_pos_SQ11:
-;	LDR R0, ptr_to_position_SQ11
-;	B RGB_Compare
-
-;RGB_pos_SQ12:
-;	LDR R0, ptr_to_position_SQ12
-;	B RGB_Compare
-
-;RGB_pos_SQ13:
-;	LDR R0, ptr_to_position_SQ13
-;	B RGB_Compare
-
-;RGB_pos_SQ14:
-;	LDR R0, ptr_to_position_SQ14
-;	B RGB_Compare
-
-;RGB_pos_SQ15:
-;	LDR R0, ptr_to_position_SQ15
-;	B RGB_Compare
 
 
 ;;;---------------------Determine Number------------------------;;;

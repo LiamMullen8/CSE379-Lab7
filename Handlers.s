@@ -32,6 +32,10 @@
  	.global output_character
  	.global output_string
  	.global illuminate_RGB_LED
+ 	.global move_left
+ 	.global move_right
+ 	.global move_upward
+ 	.global move_downward
 
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
