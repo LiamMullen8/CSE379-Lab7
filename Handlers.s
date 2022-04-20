@@ -12,6 +12,7 @@
 	.global SCORE
 	.global TIME
 	.global END_status
+	.global START_status
 	.global PAUSED_status
 	.global CHANGE_status
 	.global WIN_BLOCK
@@ -30,9 +31,7 @@
  	.global read_tiva_push_button	; read sw1
  	.global output_character
  	.global output_string
- 	.global int2string				; to print current score and time
  	.global illuminate_RGB_LED
-
 
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
@@ -42,15 +41,20 @@ ptr_to_game_board:			.word game_board
 ptr_to_win:					.word WIN_end
 ptr_to_lose:				.word LOSE_end
 ptr_to_end_status:			.word END_status
+ptr_to_start_status:		.word START_status
 ptr_to_paused_status:		.word PAUSED_status
 ptr_to_change_status:		.word CHANGE_status
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
 ptr_to_score:				.word SCORE
 ptr_to_time:				.word TIME
 
-
 ; ptr to winning value block
-ptr_to_win_block: .word WIN_BLOCK
+ptr_to_win_block: 	.word WIN_BLOCK
+
+END_status:			.byte 0x00
+PAUSED_status:		.byte 0x00
+CHANGE_status:		.byte 0x00
+START_status:		.byte 0x00
 
 ; Receive Interrupt Mask in UART Interrupt Mask Register
 RXIM:		.equ 0x10
@@ -128,6 +132,14 @@ Switch_Handler:
 ; if in change win menu, go back to pause menu
 SW1_pressed:
 
+	;check if game started
+	LDR R1, ptr_to_start_status
+	LDRB R1, [R1]
+
+	; if game not started, start it
+	CMP R1, #0
+	BEQ sw1_start
+
 	;check menu status
 	LDR R1, ptr_to_paused_status
 	LDRB R1, [R1]
@@ -146,6 +158,23 @@ SW1_pressed:
 	; if paused, and not in change win menu, sw1 does nothing
 	B switch_end
 
+sw1_start:
+
+	BL clear_game
+
+	;set started status
+	LDR R1, ptr_to_start_status
+	MOV R0, #0x1
+	STRB R0, [R1]
+
+	; enable timer
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+	LDR R1, [R0, #0xC]
+	ORR R1, #0x1
+	STR R1, [R0, #0xC]
+
+	B switch_end
 
 sw1_pause:
 	;set pause status
@@ -434,7 +463,7 @@ UART0_Handler:
 	ORR R1, #RXIC
 	STR R1, [R0, #UARTICR]
 
-
+	;read keypress
 	BL simple_read_character
 	CMP R0, #W
 	BEQ W_pressed
@@ -446,21 +475,20 @@ UART0_Handler:
 	BEQ D_pressed
 
 W_pressed:
-	;BL move_up
+	BL move_upward
 	B uart_end
 
 A_pressed:
-	;BL move_left
+	BL move_left
 	B uart_end
 
 S_pressed:
-	;BL move_down
+	BL move_downward
 	B uart_end
 
 D_pressed:
-	;BL move_right
+	BL move_right
 	B uart_end
-
 
 uart_end:
 	POP {r0-r11, lr}
@@ -478,13 +506,11 @@ Timer_Handler:
 	ORR R1, #0x1
 	STR R1, [R0, #GPTMICR]
 
-
 	; increment timer
 	LDR R0, ptr_to_time
 	LDR R1, [R0]
 	ADD R1, #1
 	STR R1, [R0]
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Insert Logic here
@@ -495,3 +521,4 @@ timer_end:
  	BX lr ; Return
 
 ;;;------------------------------------------------------------------------------;;;
+.end

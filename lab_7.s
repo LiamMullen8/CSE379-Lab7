@@ -73,9 +73,9 @@
 	.global TIMESCORE_prompt
 	.global SCORE
 	.global TIME
-	.global END_status
-	.global PAUSED_status
-	.global CHANGE_status
+	;.global END_status
+	;.global PAUSED_status
+	;.global CHANGE_status
 	.global WIN_BLOCK
 	.global position
 
@@ -89,9 +89,10 @@ SCORE:				.word 0x00000000
 TIME:				.word 0x00000000
 
 ; flags for checking in progress/ended
-END_status:			.byte 0x00
-PAUSED_status:		.byte 0x00
-CHANGE_status:		.byte 0x00
+;END_status:			.byte 0x00
+;PAUSED_status:		.byte 0x00
+;CHANGE_status:		.byte 0x00
+;START_status:		.byte 0x00
 
 ;Winning value block - default 2048
 WIN_BLOCK: .half 2048
@@ -174,9 +175,9 @@ ptr_to_clear_screen:		.word clear_screen
 ptr_to_game_board:			.word game_board
 ptr_to_win:					.word WIN_end
 ptr_to_lose:				.word LOSE_end
-ptr_to_end_status:			.word END_status
-ptr_to_paused_status:		.word PAUSED_status
-ptr_to_change_status:		.word CHANGE_status
+;ptr_to_end_status:			.word END_status
+;ptr_to_paused_status:		.word PAUSED_status
+;ptr_to_change_status:		.word CHANGE_status
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
 ptr_to_score:				.word SCORE
 ptr_to_time:				.word TIME
@@ -251,8 +252,6 @@ ptr_to_position_SQ15: 		.word position_SQ15
 ptr_to_win_block: .word WIN_BLOCK
 
 
-
-
 ;;;------------------------------------------------------------------------------;;;
 
 lab7:
@@ -269,6 +268,8 @@ lab7:
 	;; clear terminal display
 	LDR R0, ptr_to_clear_screen
 	BL output_string
+
+	BL clear_game
 
 	LDR R0, ptr_to_timescore_prompt
 	BL output_string
@@ -382,14 +383,11 @@ random_generator:
 	; if x <= 6, return 4
 	; else,		 return 2
 	CMP R0, #6
-	BLT gen4
+	ITE LT
+	MOVLT R1, #4
+	MOVGE R1, #2
 
-	MOV R1, #2
-	B rand_end
-gen4:
-	MOV R1, #4
 
-rand_end:
 	POP{lr}
 	MOV pc, lr
 ;;;------------------------------------------------------------------------------;;;
@@ -431,7 +429,7 @@ rand_end:
 ; shifts enire board left one square
 ; must be called 4 times for complete left shift
 move_left:
-	PUSH {R4-R11}
+	PUSH {R4-R11, lr}
 ;---------First Two Blocks-----------;
 	;Set up R0-R3 for the First row
 	LDR R0, ptr_to_SQ0
@@ -511,7 +509,7 @@ move_left:
 	BL shift_ptrs
 
 ;-----End of Move Left-----;
-	POP {R4-R11}
+	POP {R4-R11, lr}
 	MOV pc,lr
 
 
@@ -519,7 +517,7 @@ move_left:
 ; shifts enire board right one square
 ; must be called 4 times for complete right shift
 move_right:
-	PUSH {R4-R11}
+	PUSH {R4-R11, lr}
 ;---------First Two Blocks-----------;
 	;Set up R0-R3 for the First row
 	LDR R0, ptr_to_SQ3
@@ -599,13 +597,15 @@ move_right:
 	BL shift_ptrs
 
 ;-----End of Move Right-----;
-	POP {R4-R11}
+	POP {R4-R11, lr}
 	MOV pc,lr
 
 ;----------movement_upward-------------;
 ; shifts enire board up one square
 ; must be called 4 times for complete upwards shift
 move_upward:
+	PUSH {R4-R11, lr}
+
 ;---------First Two Blocks-----------;
 	;Set up R0-R3 for the First Column
 	LDR R0, ptr_to_SQ0
@@ -683,14 +683,14 @@ move_upward:
 	BL shift_ptrs
 
 ;-----End of Move Up-----;
-	POP {R4-R11}
+	POP {R4-R11, lr}
 	MOV pc,lr
 
 ;----------movement_downward-------------;
 ; shifts enire board down one square
 ; must be called 4 times for complete downwards shift
 move_downward:
-	PUSH {R4-R11}
+	PUSH {R4-R11, lr}
 ;---------First Two Blocks-----------;
 	;Set up R0-R3 for the First Column
 	LDR R0, ptr_to_SQ12
@@ -770,7 +770,7 @@ move_downward:
 	BL shift_ptrs
 
 ;-----End of Move Up-----;
-	POP {R4-R11}
+	POP {R4-R11, lr}
 	MOV pc,lr
 
 ;;;---------------------------BRANCH LEVEL--------------------------------;;;
@@ -781,7 +781,7 @@ move_downward:
 ; R2 holds ptr_to_@	(A,C,E,G)
 ; R3 holds ptr_to_% (B,D,F,H)
 shift_ptrs:
-	PUSH {R4-R11}
+	PUSH {R4-R11, lr}
 	;2A Determine if SQX holds Zero
 	LDR R4, [R0] ;Get value of SQX
 	CMP R4, #0x0 ;Compare
@@ -801,7 +801,7 @@ SP_move_ptrs: ;Jump to move_ptrs (one zero present)
 	B SP_end
 
 SP_end: ;Ending shift_ptrs
-	POP {R4-R11}
+	POP {R4-R11, lr}
 	MOV pc, lr
 
 ;;;----------------------------TWIG LEVEL---------------------------------;;;
@@ -812,7 +812,7 @@ SP_end: ;Ending shift_ptrs
 ; R2 holds ptr_to_@	(A,C,E,G)
 ; R3 holds ptr_to_% (B,D,F,H)
 merge_ptrs:
-	PUSH {R4-R11}
+	PUSH {R4-R11, lr}
 	;3 Check that SQX != @
 	LDR R4, [R2] ;Load the value of ptr_to_@
 	CMP R4, R0
@@ -845,7 +845,7 @@ merge_ptrs:
 	STR R1, [R11] ;Store merged value in SQY into SQY
 
 MRP_end:
-	POP {R4-R11}
+	POP {R4-R11, lr}
 	MOV pc, lr
 
 ;----------move_ptrs--------------------;
@@ -855,6 +855,7 @@ MRP_end:
 ; R2 holds ptr_to_@	(A,C,E,G)
 ; R3 holds ptr_to_% (B,D,F,H)
 move_ptrs:
+	PUSH {R4-R11, lr}
 
 	;3A Check SQY != @
 	CMP R1, R2
@@ -883,7 +884,7 @@ MVP_move_capped_ptr_1: ;4A SQY is pointed to by %
 	LDR R0, [R3] ;Update % to point ot SQX (SQ in the direction of the move)
 
 MVP_end:
-	POP {R4-R11}
+	POP {R4-R11, lr}
 	MOV pc, lr
 
 
@@ -974,7 +975,6 @@ get_block_value:
 
 	BL output_string
 
-
 	POP {lr}
 	MOV pc, lr
 
@@ -986,7 +986,7 @@ get_block_value:
 ;;; to putty in the order they are defined
 
 render_game_board:
-	PUSH {R0-R11}
+	PUSH {R0-R11, lr}
 
 	; Order of ptrs after the loading phase
 	;------Stack-------
@@ -1064,119 +1064,151 @@ RGB_Loop:
 
 	;Assigning position
 	CMP R2, #0x0
-	BEQ RGB_pos_SQ0
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ0
+	BEQ RGB_Compare
 
 	CMP R2, #0x1
-	BEQ RGB_pos_SQ1
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ1
+	BEQ RGB_Compare
 
 	CMP R2, #0x2
-	BEQ RGB_pos_SQ2
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ2
+	BEQ RGB_Compare
 
 	CMP R2, #0x3
-	BEQ RGB_pos_SQ3
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ3
+	BEQ RGB_Compare
 
 	CMP R2, #0x4
-	BEQ RGB_pos_SQ4
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ4
+	BEQ RGB_Compare
 
 	CMP R2, #0x5
-	BEQ RGB_pos_SQ5
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ5
+	BEQ RGB_Compare
 
 	CMP R2, #0x6
-	BEQ RGB_pos_SQ6
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ6
+	BEQ RGB_Compare
 
 	CMP R2, #0x7
-	BEQ RGB_pos_SQ7
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ7
+	BEQ RGB_Compare
 
 	CMP R2, #0x8
-	BEQ RGB_pos_SQ8
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ8
+	BEQ RGB_Compare
 
 	CMP R2, #0x9
-	BEQ RGB_pos_SQ9
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ9
+	BEQ RGB_Compare
 
 	CMP R2, #0xA
-	BEQ RGB_pos_SQ10
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ10
+	BEQ RGB_Compare
 
 	CMP R2, #0xB
-	BEQ RGB_pos_SQ11
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ11
+	BEQ RGB_Compare
 
 	CMP R2, #0xC
-	BEQ RGB_pos_SQ12
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ12
+	BEQ RGB_Compare
 
 	CMP R2, #0xD
-	BEQ RGB_pos_SQ13
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ13
+	BEQ RGB_Compare
 
 	CMP R2, #0xE
-	BEQ RGB_pos_SQ14
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ14
+	BEQ RGB_Compare
 
 	CMP R2, #0xF
-	BEQ RGB_pos_SQ15
+	IT EQ
+	LDREQ R0, ptr_to_position_SQ15
+	BEQ RGB_Compare
 
 ;;;---------------------Set up cursor movement------------------------;;;
 ;;; Based upon the R2 register (AKA the order of the blocks) the cursor movement
 ;;; will be mapped to predetermined SQ
-RGB_pos_SQ0:
-	LDR R0, ptr_to_position_SQ0
-	B RGB_Compare
+;RGB_pos_SQ0:
+;	LDR R0, ptr_to_position_SQ0
+;	B RGB_Compare
 
-RGB_pos_SQ1:
-	LDR R0, ptr_to_position_SQ1
-	B RGB_Compare
+;RGB_pos_SQ1:
+;	LDR R0, ptr_to_position_SQ1
+;	B RGB_Compare
 
-RGB_pos_SQ2:
-	LDR R0, ptr_to_position_SQ2
-	B RGB_Compare
+;RGB_pos_SQ2:
+;	LDR R0, ptr_to_position_SQ2
+;	B RGB_Compare
 
-RGB_pos_SQ3:
-	LDR R0, ptr_to_position_SQ3
-	B RGB_Compare
+;RGB_pos_SQ3:
+;	LDR R0, ptr_to_position_SQ3
+;	B RGB_Compare
 
-RGB_pos_SQ4:
-	LDR R0, ptr_to_position_SQ4
-	B RGB_Compare
+;RGB_pos_SQ4:
+;	LDR R0, ptr_to_position_SQ4
+;	B RGB_Compare
 
-RGB_pos_SQ5:
-	LDR R0, ptr_to_position_SQ5
-	B RGB_Compare
+;RGB_pos_SQ5:
+;	LDR R0, ptr_to_position_SQ5
+;	B RGB_Compare
 
-RGB_pos_SQ6:
-	LDR R0, ptr_to_position_SQ6
-	B RGB_Compare
+;RGB_pos_SQ6:
+;	LDR R0, ptr_to_position_SQ6
+;	B RGB_Compare
 
-RGB_pos_SQ7:
-	LDR R0, ptr_to_position_SQ7
-	B RGB_Compare
+;RGB_pos_SQ7:
+;	LDR R0, ptr_to_position_SQ7
+;	B RGB_Compare
 
-RGB_pos_SQ8:
-	LDR R0, ptr_to_position_SQ8
-	B RGB_Compare
+;RGB_pos_SQ8:
+;	LDR R0, ptr_to_position_SQ8
+;	B RGB_Compare
 
-RGB_pos_SQ9:
-	LDR R0, ptr_to_position_SQ9
-	B RGB_Compare
+;RGB_pos_SQ9:
+;	LDR R0, ptr_to_position_SQ9
+;	B RGB_Compare
 
-RGB_pos_SQ10:
-	LDR R0, ptr_to_position_SQ10
-	B RGB_Compare
+;RGB_pos_SQ10:
+;	LDR R0, ptr_to_position_SQ10
+;	B RGB_Compare
 
-RGB_pos_SQ11:
-	LDR R0, ptr_to_position_SQ11
-	B RGB_Compare
+;RGB_pos_SQ11:
+;	LDR R0, ptr_to_position_SQ11
+;	B RGB_Compare
 
-RGB_pos_SQ12:
-	LDR R0, ptr_to_position_SQ12
-	B RGB_Compare
+;RGB_pos_SQ12:
+;	LDR R0, ptr_to_position_SQ12
+;	B RGB_Compare
 
-RGB_pos_SQ13:
-	LDR R0, ptr_to_position_SQ13
-	B RGB_Compare
+;RGB_pos_SQ13:
+;	LDR R0, ptr_to_position_SQ13
+;	B RGB_Compare
 
-RGB_pos_SQ14:
-	LDR R0, ptr_to_position_SQ14
-	B RGB_Compare
+;RGB_pos_SQ14:
+;	LDR R0, ptr_to_position_SQ14
+;	B RGB_Compare
 
-RGB_pos_SQ15:
-	LDR R0, ptr_to_position_SQ15
-	B RGB_Compare
+;RGB_pos_SQ15:
+;	LDR R0, ptr_to_position_SQ15
+;	B RGB_Compare
 
 
 ;;;---------------------Determine Number------------------------;;;
@@ -1301,117 +1333,8 @@ Render2048:
 ;;;---------------------End Render------------------------;;;
 ;;; Only be accessed when R2 = #0x10
 RGB_end:
-	POP {r0-r11}
-	MOV pc, lr
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; KINDOF IGNORE;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;
-move_Left:
-	PUSH {r0-r11, lr}
-	LDR R4, ptr_to_SQ0
-	LDR R4, [R4]
-	LDR R5, ptr_to_SQ4
-	LDR R6, ptr_to_SQ8
-	LDR R7, ptr_to_SQ12
-	LDR R8, ptr_to_SQ1
-	LDR R8, [R8]
-	LDR R9, ptr_to_SQ5
-	LDR R10, ptr_to_SQ9
-	LDR R11, ptr_to_SQ13
-	; if right side = 0; do nothing, no merge or slide
-	CMP R8, #0
-	CMP R9, #0
-	CMP R10, #0
-	CMP R11, #0
-	; if left side = 0; move right block over to left, new right = 0
-	CMP R4, #0
-	CMP R5, #0
-	CMP R6, #0
-	CMP R7, #0
-	; compare values
-	LDR R0, ptr_to_SQ0
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ1
-	LDR R3, [R1]
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	; second row
-	LDR R0, ptr_to_SQ4
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ5
-	LDR R3, [R1]
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	; third row
-	LDR R0, ptr_to_SQ8
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ9
-	LDR R3, [R1]
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	; fourth row
-	LDR R0, ptr_to_SQ12
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ13
-	LDR R3, [R1]
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-merge_block_left:
-	;MUL R2, R2, #2
-	STR R2, [R0]
-	MOV R2, #0
-	STR R2, [R1]
-move_Right:
-	PUSH {r0-r11, lr}
-merge_block_right:
-	;MUL R2, R2, #2
-	STR R2, [R1]
-	MOV R2, #0
-	STR R2, [R1]
-	POP {r0-r11, lr}
-	MOV pc, lr
-move_Up:
-	PUSH {r0-r11, lr}
-merge_block_up:
-	;MUL R2, R2, #2
-	STR R2, [R0]
-	MOV R2, #0
-	STR R2, [R1]
-	POP {r0-r11, lr}
-	MOV pc, lr
-move_Down:
-	PUSH {r0-r11, lr}
-merge_block_down:
-	;MUL R2, R2, #2
-	STR R2, [R1]
-	MOV R2, #0
-	STR R2, [R0]
 	POP {r0-r11, lr}
 	MOV pc, lr
 
-;------------;
-ML_end:
-	B ML_end
 
-	.end
+.end
