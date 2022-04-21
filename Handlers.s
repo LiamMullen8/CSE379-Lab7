@@ -1,4 +1,20 @@
 	.data
+	.global SQ0
+	.global SQ1
+	.global SQ2
+	.global SQ3
+	.global SQ4
+	.global SQ5
+	.global SQ6
+	.global SQ7
+	.global SQ8
+	.global SQ9
+	.global SQ10
+	.global SQ11
+	.global SQ12
+	.global SQ13
+	.global SQ14
+	.global SQ15
 
 	; screens
 	.global pause_menu
@@ -16,6 +32,7 @@
 	.global PAUSED_status
 	.global CHANGE_status
 	.global WIN_BLOCK
+	.global INCR
 
  	.global clear_game
 
@@ -36,6 +53,18 @@
  	.global move_right
  	.global move_upward
  	.global move_downward
+ 	.global render_game_board
+
+ 	; Merge Pointers
+	.global merge_A
+	.global merge_B
+	.global merge_C
+	.global merge_D
+	.global merge_E
+	.global merge_F
+	.global merge_G
+	.global merge_H
+
 
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
@@ -51,6 +80,7 @@ ptr_to_change_status:		.word CHANGE_status
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
 ptr_to_score:				.word SCORE
 ptr_to_time:				.word TIME
+ptr_to_accumulator:			.word INCR
 
 ; ptr to winning value block
 ptr_to_win_block: 	.word WIN_BLOCK
@@ -60,6 +90,9 @@ PAUSED_status:		.byte 0x00
 CHANGE_status:		.byte 0x00
 START_status:		.byte 0x00
 
+
+INCR:				.byte 0x00
+TI:					.byte 0x00
 ; Receive Interrupt Mask in UART Interrupt Mask Register
 RXIM:		.equ 0x10
 ; Recieve Interrupt Clear in UART Interrupt Clear Register
@@ -83,6 +116,38 @@ A:			.equ 0x61
 S:			.equ 0x73
 D:			.equ 0x64
 
+;ptrs to meta data
+ptr_to_merge_A:		.word merge_A
+ptr_to_merge_B:		.word merge_B
+ptr_to_merge_C:		.word merge_C
+ptr_to_merge_D:		.word merge_D
+ptr_to_merge_E:		.word merge_E
+ptr_to_merge_F:		.word merge_F
+ptr_to_merge_G:		.word merge_G
+ptr_to_merge_H:		.word merge_H
+
+;ptrs to abstraction layer
+ptr_to_SQ0: 				.word SQ0
+ptr_to_SQ1: 				.word SQ1
+ptr_to_SQ2: 				.word SQ2
+ptr_to_SQ3: 				.word SQ3
+
+ptr_to_SQ4: 				.word SQ4
+ptr_to_SQ5: 				.word SQ5
+ptr_to_SQ6: 				.word SQ6
+ptr_to_SQ7: 				.word SQ7
+
+ptr_to_SQ8:					.word SQ8
+ptr_to_SQ9:					.word SQ9
+ptr_to_SQ10: 				.word SQ10
+ptr_to_SQ11: 				.word SQ11
+
+ptr_to_SQ12: 				.word SQ12
+ptr_to_SQ13: 				.word SQ13
+ptr_to_SQ14: 				.word SQ14
+ptr_to_SQ15: 				.word SQ15
+
+ptr_to_TI:					.word TI
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------------INTERRUPT HANDLERS--------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
@@ -467,6 +532,26 @@ UART0_Handler:
 	ORR R1, #RXIC
 	STR R1, [R0, #UARTICR]
 
+
+
+complete_movement_poll:
+
+	; check if accum == 4
+	LDR R0, ptr_to_accumulator
+	LDRB R1, [R0]
+
+	CMP R1, #4
+	BEQ clear_merges
+
+	; check TI, if true: render movement, else: clear merges
+	LDR R0, ptr_to_TI
+	LDRB R1, [R0]
+
+	CMP R1, #1
+	BNE clear_merges
+
+render_movement:
+
 	;read keypress
 	BL simple_read_character
 	CMP R0, #W
@@ -478,25 +563,121 @@ UART0_Handler:
 	CMP R0, #D
 	BEQ D_pressed
 
+	B uart_end
+
 W_pressed:
 	BL move_upward
-	B uart_end
+	BL render_game_board
+	B increment_accumulator
 
 A_pressed:
 	BL move_left
-	B uart_end
+	BL render_game_board
+	B increment_accumulator
 
 S_pressed:
 	BL move_downward
-	B uart_end
+	BL render_game_board
+	B increment_accumulator
 
 D_pressed:
 	BL move_right
-	B uart_end
+	BL render_game_board
+	B increment_accumulator
+
+increment_accumulator:
+	LDR R0, ptr_to_accumulator
+	LDRB R1, [R0]
+	ADD R1, #1
+	STRB R1, [R0]
+
+	; reset TI
+	MOV R1, #0
+	STRB R1, [R0]
+
+	B complete_movement_poll
+
+clear_merges:
+
+	; clear merge pointers
+	LDR R0, ptr_to_merge_A
+	LDR R1, ptr_to_merge_B
+	LDR R2, ptr_to_merge_C
+	LDR R3, ptr_to_merge_D
+	LDR R4, ptr_to_merge_E
+	LDR R5, ptr_to_merge_F
+	LDR R6, ptr_to_merge_G
+	LDR R7, ptr_to_merge_H
+
+	STMDB SP!, {R0-R7}
+
+	MOV R1, #0
+	MOV R2, #1
+
+clear_poll:
+	LDMIA SP!, {R0}
+	STRB R1, [R0]
+
+	; if iterated all merges
+	CMP R2, #8
+	IT NE
+	ADDNE R2, #1
+	BNE clear_poll
+
+	; prep SQs for win check
+	LDR R0, ptr_to_SQ0
+	LDR R1, ptr_to_SQ1
+	LDR R2, ptr_to_SQ2
+	LDR R3, ptr_to_SQ3
+	STMDB SP!, {R0-R3}
+
+	LDR R0, ptr_to_SQ4
+	LDR R1, ptr_to_SQ5
+	LDR R2, ptr_to_SQ6
+	LDR R3, ptr_to_SQ7
+	STMDB SP!, {R0-R3}
+
+	LDR R0, ptr_to_SQ8
+	LDR R1, ptr_to_SQ9
+	LDR R2, ptr_to_SQ10
+	LDR R3, ptr_to_SQ11
+	STMDB SP!, {R0-R3}
+
+	LDR R0, ptr_to_SQ12
+	LDR R1, ptr_to_SQ13
+	LDR R2, ptr_to_SQ14
+	LDR R3, ptr_to_SQ15
+	STMDB SP!, {R0-R3}
+
+	; incrementer
+	MOV R2, #1
+	; win block value
+	LDR R1, ptr_to_win_block
+	LDRH R1, [R1]
+
+check_win_poll:
+
+	; POP value of SQ
+	LDMIA SP!, {R0}
+	LDR R0, [R0]
+
+	; if current SQ = win block
+	CMP R0, R1
+	BEQ WIN
+
+	; if iterated all SQs
+	CMP R2, #16
+	IT NE
+	ADDNE R2, #1
+	BNE check_win_poll
 
 uart_end:
 	POP {r0-r11, lr}
 	BX lr
+
+WIN:
+	B uart_end
+
 
 ;;;------------------------------------------------------------------------------;;;
 Timer_Handler:
@@ -515,6 +696,20 @@ Timer_Handler:
 	LDR R1, [R0]
 	ADD R1, #1
 	STR R1, [R0]
+
+
+	; increment INCs
+	LDR R0, ptr_to_accumulator
+	LDR R1, [R0]
+	ADD R1, #1
+	STR R1, [R0]
+
+	; toggle TI
+	MOV R1, #1
+	LDR R0, ptr_to_TI
+	STRB R1, [R0]
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Insert Logic here

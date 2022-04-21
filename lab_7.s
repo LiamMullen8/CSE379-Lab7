@@ -167,6 +167,7 @@ merge_H:		.word 0x00000000
  	.global clear_game
 	.global random_generator				; RNG
 	.global spawn_random_block
+	.global render_game_board
 
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
