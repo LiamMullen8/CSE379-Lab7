@@ -428,13 +428,13 @@ timer_interrupt_init:
 ; EXAMPLE modulus input (R0: 6, R1: 4), output (R0: 2, R1: 4)
 
 modulus:
-	PUSH {R2-R11}
+	PUSH {R2-R11, lr}
 
 	UDIV R3, R0, R1 ;div to get quotient
 	MUL R3, R3, R1	;Need for computing remainder
 	SUB R0, R0, R3	;the mod (remainder)
 
-	POP {R2-R11}
+	POP {R2-R11, lr}
 	MOV pc, lr
 
 
@@ -582,7 +582,6 @@ RS_end:
 
 	POP {R1-R2, lr}
 	mov pc, lr
-
 
 
 ;----------------------------------------------------;
