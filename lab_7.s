@@ -90,6 +90,10 @@ TIMESCORE_prompt:	.string 27,"[1;1f",27,"[37mTIME: ",27,"[1;17f",27,"[37mSCORE: 
 SCORE:				.word 0x00000000
 TIME:				.word 0x00000000
 
+; tracking time for Animation sequences
+TI:					.byte 0x00 			;Set to one when the next animation can occur
+INC:				.word 0x00000000	;Counts up to a magic number. When it reaches it it sets the TI and restarts
+
 ; flags for checking in progress/ended
 END_status:			.byte 0x00
 PAUSED_status:		.byte 0x00
@@ -258,6 +262,10 @@ RXIM:		.equ 0x10
 ; Recieve Interrupt Clear in UART Interrupt Clear Register
 RXIC:		.equ 0x10
 
+; ptr to Animation timer values
+ptr_to_TI: 		.byte TI
+ptr_to_INC: 	.word INC
+
 ; Interrupt clear register offsets
 GPIOICR: 	.equ 0x41C
 GPTMICR:	.equ 0x024
@@ -297,376 +305,6 @@ lab7:
 	STR R1, [R0, #0xC]
 
 
-;;;------------------------------------------------------------------------------;;;
-;;;---------------------------Move & Merge Testing-------------------------------;;;
-;;;------------------------------------------------------------------------------;;;
-
-
-;;;------------------------------------------------------------------------------;;;
-;;		Simple move_left test, showing the merging of block2 in columns 1&2 -> column 1
-;;	[2 2 _ _]		[4 _ _ _]
-;;	[2 2 _ _]	to 	[4 _ _ _]
-;;	[2 2 _ _]		[4 _ _ _]
-;;	[2 2 _ _]		[4 _ _ _]
-
-	;; clear terminal display
-	LDR R0, ptr_to_clear_screen
-	BL output_string
-
-	;; Print Time score Prompt
-	LDR R0, ptr_to_timescore_prompt
-	BL output_string
-
-	;; display starting screen
-	LDR R0, ptr_to_game_board
-	BL output_string
-
-	;-------Move Left------;
-	; Merge the block2 in Column 1 with the block2 in Column 2
-
-	;---ROW 1---;
-	LDR R0, ptr_to_SQ0 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ1 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 2---;
-	LDR R0, ptr_to_SQ4 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ5 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 3---;
-	LDR R0, ptr_to_SQ8 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ9 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 4---;
-	LDR R0, ptr_to_SQ12 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ13 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-;;;------------------------------------------------------------------------------;;;
-;;		Repeated call move_left calling
-;;	[2 _ _ 2]	[2 _ 2 _]	[2 2 _ _]	[4 _ _ _]
-;;	[2 _ _ 2]	[2 _ 2 _]	[2 2 _ _]	[4 _ _ _]
-;;	[2 _ _ 2]	[2 _ 2 _]	[2 2 _ _]	[4 _ _ _]
-;;	[2 _ _ 2]	[2 _ 2 _]	[2 2 _ _]	[4 _ _ _]
-
-	;; clear SQ ptrs
-	BL clear_board_ptrs
-
-	;; clear merge ptrs
-	BL clear_merge_ptrs
-
-	;; clear terminal display
-	LDR R0, ptr_to_clear_screen
-	BL output_string
-
-	;; Print Time score Prompt
-	LDR R0, ptr_to_timescore_prompt
-	BL output_string
-
-	;; display starting screen
-	LDR R0, ptr_to_game_board
-	BL output_string
-
-	;---ROW 1---;
-	LDR R0, ptr_to_SQ0 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ3 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 2---;
-	LDR R0, ptr_to_SQ4 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ7 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 3---;
-	LDR R0, ptr_to_SQ8 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ11 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 4---;
-	LDR R0, ptr_to_SQ12 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ15 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---Call & Render---;
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-;;;------------------------------------------------------------------------------;;;
-;;		Capped Merge Example 1 (held in the @)
-;;		[4 2 _ 2]	[4 2 2 _]	[4 4 _ _]	[4 4 _ _](Extra third call for the test)
-;;		[4 2 _ 2]	[4 2 2 _]	[4 4 _ _]	[4 4 _ _]
-;;		[4 2 _ 2]	[4 2 2 _]	[4 4 _ _]	[4 4 _ _]
-;;		[4 2 _ 2]	[4 2 2 _]	[4 4 _ _]	[4 4 _ _]
-
-	;; clear SQ ptrs
-	BL clear_board_ptrs
-
-	;; clear merge ptrs
-	BL clear_merge_ptrs
-
-	;; clear terminal display
-	LDR R0, ptr_to_clear_screen
-	BL output_string
-
-	;; Print Time score Prompt
-	LDR R0, ptr_to_timescore_prompt
-	BL output_string
-
-	;; display starting screen
-	LDR R0, ptr_to_game_board
-	BL output_string
-
-	;---ROW 1---;
-	LDR R0, ptr_to_SQ0 ;First block4
-	MOV R1, #0x4
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ1 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ3 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 2---;
-	LDR R0, ptr_to_SQ4 ;First block4
-	MOV R1, #0x4
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ5 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ7 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 3---;
-	LDR R0, ptr_to_SQ8 ;First block4
-	MOV R1, #0x4
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ9 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ11 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 4---;
-	LDR R0, ptr_to_SQ12 ;First block4
-	MOV R1, #0x4
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ13 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ15 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---Call & Render---;
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-;;;------------------------------------------------------------------------------;;;
-;;		Capped Merge Example 1 (held in the @)
-;;		[2 2 2 2]	[4 _ 4 _]	[4 4 _ _]	[4 4 _ _](Extra third call for the test)
-;;		[2 2 2 2]	[4 _ 4 _]	[4 4 _ _]	[4 4 _ _]
-;;		[2 2 2 2]	[4 _ 4 _]	[4 4 _ _]	[4 4 _ _]
-;;		[2 2 2 2]	[4 _ 4 _]	[4 4 _ _]	[4 4 _ _]
-
-	;; clear SQ ptrs
-	BL clear_board_ptrs
-
-	;; clear merge ptrs
-	BL clear_merge_ptrs
-
-	;; clear terminal display
-	LDR R0, ptr_to_clear_screen
-	BL output_string
-
-	;; Print Time score Prompt
-	LDR R0, ptr_to_timescore_prompt
-	BL output_string
-
-	;; display starting screen
-	LDR R0, ptr_to_game_board
-	BL output_string
-
-	;---ROW 1---;
-	LDR R0, ptr_to_SQ0 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ1 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ2 ;Third block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ3 ;Fourth block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 2---;
-	LDR R0, ptr_to_SQ4 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ5 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ6 ;Third block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ7 ;Fourth block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 3---;
-	LDR R0, ptr_to_SQ8 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ9 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ10 ;Third block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ11 ;Fourth block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 4---;
-	LDR R0, ptr_to_SQ12 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ13 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ14 ;Third block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ15 ;Fourth block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---Call & Render---;
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-	BL move_left
-
-	BL render_game_board
-
-
-;;;------------------------------------------------------------------------------;;;
-;;		Simple move_right test, showing the merging of block2 in columns 3&4 -> column 4
-;;	[_ _ 2 2]		[_ _ _ 4]
-;;	[_ _ 2 2]	to	[_ _ _ 4]
-;;	[_ _ 2 2]		[_ _ _ 4]
-;;	[_ _ 2 2]		[_ _ _ 4]
-
-	;; clear terminal display
-	LDR R0, ptr_to_clear_screen
-	BL output_string
-
-	;; Print Time score Prompt
-	LDR R0, ptr_to_timescore_prompt
-	BL output_string
-
-	;; display starting screen
-	LDR R0, ptr_to_game_board
-	BL output_string
-
-
-
-
-;;;------------------------End of Move & Merge Testing---------------------------;;;
-;;;------------------------------------------------------------------------------;;;
 
 l:
 	b l
@@ -731,20 +369,49 @@ UART0_Handler:
 	BEQ S_pressed
 	CMP R0, #D
 	BEQ D_pressed
-
+;--------------------------------------;
+;------------Movement Up---------------;
 W_pressed:
-	;BL move_up
-	B uart_end
+	MOV R7, #0x0 	; Set R7 to be accumulator
 
+WP_poll: 			; Enter polling
+	CMP R7, #4		;Check if 4 renders have occurred
+	BEQ WP_end
+
+	LDR R0, ptr_to_IT
+	LDR R0, [R0]	; Determine if IT has been set
+	CMP R0, #0x1
+	BEQ WP_render	; If set branch to render, not set keep looping
+	B WP_poll
+
+WP_render:
+	BL move_up				; Calculate the movement call
+	BL render_game_board	; Render the new movement
+	ADD R7, R7, #0x1 		; Increment accumulator
+	B WP_poll				; go back to polling
+
+WP_end:
+	; Set player WIN? or span in random block?
+	BL clear_merge_ptrs	; Clear the merge pointers for next time
+	B uart_end			; Exit subroutine
+
+;--------------------------------------;
+;-----------Movement Left--------------;
 A_pressed:
 	;BL move_left
 	B uart_end
 
+
+;--------------------------------------;
+;-----------Movement Down--------------;
 S_pressed:
 	;BL move_down
 	B uart_end
 
-D_pressed:
+
+;--------------------------------------;
+;-----------Movement Right-------------;
+D_pressed:	;Movement Right
 	;BL move_right
 	B uart_end
 
@@ -2076,169 +1743,6 @@ Render2048:
 	ADD R2, R2, #0x1 ; Increment the counter
 	B RGB_Loop
 
-
-
-
-
-
-
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; KINDOF IGNORE;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;
-move_Left:
-	PUSH {r0-r11, lr}
-
-
-
-	LDR R4, ptr_to_SQ0
-	LDR R4, [R4]
-	LDR R5, ptr_to_SQ4
-	LDR R6, ptr_to_SQ8
-	LDR R7, ptr_to_SQ12
-
-	LDR R8, ptr_to_SQ1
-	LDR R8, [R8]
-	LDR R9, ptr_to_SQ5
-	LDR R10, ptr_to_SQ9
-	LDR R11, ptr_to_SQ13
-
-	; if right side = 0; do nothing, no merge or slide
-	CMP R8, #0
-	CMP R9, #0
-	CMP R10, #0
-	CMP R11, #0
-
-	; if left side = 0; move right block over to left, new right = 0
-	CMP R4, #0
-	CMP R5, #0
-	CMP R6, #0
-	CMP R7, #0
-
-	; compare values
-
-
-
-
-
-
-	LDR R0, ptr_to_SQ0
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ1
-	LDR R3, [R1]
-
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-
-	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	; second row
-	LDR R0, ptr_to_SQ4
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ5
-	LDR R3, [R1]
-
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-
-	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	; third row
-	LDR R0, ptr_to_SQ8
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ9
-	LDR R3, [R1]
-
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-
-	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	; fourth row
-	LDR R0, ptr_to_SQ12
-	LDR R2, [R0]
-	LDR R1, ptr_to_SQ13
-	LDR R3, [R1]
-
-	; if empty block to left, just slide
-	CMP R2, #0
-	;BEQ slide_block_left
-
-	; if equal value blocks, merge
-	CMP R2, R3
-	BEQ merge_block_left
-
-
-merge_block_left:
-
-	;MUL R2, R2, #2
-	STR R2, [R0]
-
-	MOV R2, #0
-	STR R2, [R1]
-
-
-
-move_Right:
-	PUSH {r0-r11, lr}
-
-merge_block_right:
-
-	;MUL R2, R2, #2
-	STR R2, [R1]
-
-	MOV R2, #0
-	STR R2, [R1]
-
-
-	POP {r0-r11, lr}
-	MOV pc, lr
-
-
-
-move_Up:
-	PUSH {r0-r11, lr}
-
-
-merge_block_up:
-
-	;MUL R2, R2, #2
-	STR R2, [R0]
-
-	MOV R2, #0
-	STR R2, [R1]
-
-	POP {r0-r11, lr}
-	MOV pc, lr
-
-move_Down:
-	PUSH {r0-r11, lr}
-
-
-merge_block_down:
-
-	;MUL R2, R2, #2
-	STR R2, [R1]
-
-	MOV R2, #0
-	STR R2, [R0]
-
-
-	POP {r0-r11, lr}
-	MOV pc, lr
 
 ;------------;
 ML_end:
