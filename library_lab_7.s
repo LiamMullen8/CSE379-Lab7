@@ -584,7 +584,6 @@ RS_end:
 	mov pc, lr
 
 
-
 ;----------------------------------------------------;
 ; merges the values of R0, and R1 into R0
 ; Sets R1 -> zero in the case of a merge, keeps it if not
@@ -595,26 +594,18 @@ merge:
 	LDR R3, [R1]
 	CMP R2, R3	;Determine if mergeable
 	BEQ m_equal
-
-	CMP R0, #0x0 ;Determine if R0 is zero
-	BEQ m_equal ;Keep merging
-
-	CMP R1, #0x0 ;Determine if R1 is zero
-	BEQ m_equal ;Keep merging
-
-
 	B m_end		;Not mergeable end
 
 m_equal:
-
-
-	ADD R0, R0, R1	;Combine
-	MOV R1, #0x0	; Reset R1 -> zero
-	MOVT R1, #0x0
+	ADD R2, R2, R3	;Combine
+	STR R2, [R0]
+	MOV R3, #0x0	; Reset R1 -> zero
+	STR R3, [R1]
 
 m_end:
 	POP {R2-R11}
 	MOV pc, lr
+
 
 ;------------------------------------------;
 ; retuns 4-bit pattern of button presses in R0
