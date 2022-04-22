@@ -590,14 +590,17 @@ RS_end:
 merge:
 	PUSH {R2-R11}
 
-	CMP R0, R1	;Determine if mergeable
+	LDR R2, [R0]
+	LDR R3, [R1]
+	CMP R2, R3	;Determine if mergeable
 	BEQ m_equal
 	B m_end		;Not mergeable end
 
 m_equal:
-	ADD R0, R0, R1	;Combine
-	MOV R1, #0x0	; Reset R1 -> zero
-	MOVT R1, #0x0
+	ADD R2, R2, R3	;Combine
+	STR R2, [R0]
+	MOV R3, #0x0	; Reset R1 -> zero
+	STR R3, [R1]
 
 m_end:
 	POP {R2-R11}

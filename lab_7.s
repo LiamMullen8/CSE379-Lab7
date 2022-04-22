@@ -92,7 +92,7 @@ TIME:				.word 0x00000000
 ;END_status:			.byte 0x00
 ;PAUSED_status:		.byte 0x00
 ;CHANGE_status:		.byte 0x00
-;START_status:		.byte 0x00
+START_status:		.byte 0x00
 
 ;Winning value block - default 2048
 WIN_BLOCK: .half 2048
@@ -179,6 +179,7 @@ ptr_to_lose:				.word LOSE_end
 ;ptr_to_end_status:			.word END_status
 ;ptr_to_paused_status:		.word PAUSED_status
 ;ptr_to_change_status:		.word CHANGE_status
+ptr_to_start_status:		.word START_status
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
 ptr_to_score:				.word SCORE
 ptr_to_time:				.word TIME
@@ -272,22 +273,22 @@ lab7:
 
 	BL clear_game
 
-	LDR R0, ptr_to_timescore_prompt
-	BL output_string
-
-	LDR R0, ptr_to_game_board
-	BL output_string
-
 	;; display starting screen
 ;	LDR R0, ptr_to_start_menu
 ;	BL output_string
 
+	;LDR R0, ptr_to_clear_screen
+	;BL output_string
+	LDR R0, ptr_to_timescore_prompt
+	BL output_string
+	LDR R0, ptr_to_game_board
+	BL output_string
+
+	BL spawn_random_block
+	BL render_game_board
+
+
 l:
-	BL spawn_random_block
-	BL spawn_random_block
-	BL spawn_random_block
-	BL spawn_random_block
-	BL spawn_random_block
 	b l
 
 	MOV pc, lr
@@ -822,8 +823,8 @@ merge_ptrs:
 	;### first time using If-Then might be buggy ###
 	CMP R4, #0x0
 	ITE NE
-	STRNE R3, [R0] ;5A Set @ = SQX (first capped merge of row)
-	STREQ R2, [R0] ;5B Set % = SQX (Second capped merge of row)
+	STRNE R0, [R2] ;5A Set @ = SQX (first capped merge of row)
+	STREQ R0, [R3] ;5B Set % = SQX (Second capped merge of row)
 	;### first time using If-Then might be buggy ###
 
 	;6 set up and execute the merge
@@ -863,6 +864,7 @@ MVP_merge:
 	MOV R10, R0 ;Preserve ptr_to_SQX
 	MOV R11, R1 ;Preserve ptr_to_SQY
 
+
 	BL merge
 
 	STR R0, [R10] ;Store merged value in SQX into SQX
@@ -885,7 +887,7 @@ MVP_end:
 
 
 spawn_random_block:
-	PUSH {lr}
+	PUSH {r0-r3, lr}
 
 get_random:
 	; seed in R0
@@ -981,20 +983,20 @@ get_block_value:
 	BNE get_random
 
 	; go to board position
-	BL output_string
+	;BL output_string
 
-	CMP R1, #0x2
-	ITE EQ
-	LDREQ R0, ptr_to_block2
-	LDRNE R0, ptr_to_block4
+	;CMP R1, #0x2
+	;ITE EQ
+	;LDREQ R0, ptr_to_block2
+	;LDRNE R0, ptr_to_block4
 
 	;update tracking
 	STR R1, [R2]
 
 	; render block
-	BL output_string
+	;BL output_string
 
-	POP {lr}
+	POP {r0-r3, lr}
 	MOV pc, lr
 
 

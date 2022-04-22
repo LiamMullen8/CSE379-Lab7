@@ -54,6 +54,7 @@
  	.global move_upward
  	.global move_downward
  	.global render_game_board
+ 	.global spawn_random_block
 
  	; Merge Pointers
 	.global merge_A
@@ -533,7 +534,6 @@ UART0_Handler:
 	STR R1, [R0, #UARTICR]
 
 
-
 complete_movement_poll:
 
 	; check if accum == 4
@@ -567,21 +567,27 @@ render_movement:
 
 W_pressed:
 	BL move_upward
+
+	BL spawn_random_block
 	BL render_game_board
+
 	B increment_accumulator
 
 A_pressed:
 	BL move_left
+	BL spawn_random_block
 	BL render_game_board
 	B increment_accumulator
 
 S_pressed:
 	BL move_downward
+	BL spawn_random_block
 	BL render_game_board
 	B increment_accumulator
 
 D_pressed:
 	BL move_right
+	BL spawn_random_block
 	BL render_game_board
 	B increment_accumulator
 
@@ -671,7 +677,9 @@ check_win_poll:
 	ADDNE R2, #1
 	BNE check_win_poll
 
+
 uart_end:
+
 	POP {r0-r11, lr}
 	BX lr
 
@@ -697,7 +705,6 @@ Timer_Handler:
 	ADD R1, #1
 	STR R1, [R0]
 
-
 	; increment INCs
 	LDR R0, ptr_to_accumulator
 	LDR R1, [R0]
@@ -708,8 +715,6 @@ Timer_Handler:
 	MOV R1, #1
 	LDR R0, ptr_to_TI
 	STRB R1, [R0]
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Insert Logic here
