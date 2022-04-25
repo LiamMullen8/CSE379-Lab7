@@ -1,7 +1,6 @@
 	.data
 	.global notIntError
 
-
 notIntError: .string "Error, string Not an integer",0
 
 	.text
@@ -25,7 +24,12 @@ notIntError: .string "Error, string Not an integer",0
 	.global string2int
 	.global merge
 
+
 ptr_to_notInt: .word notIntError
+
+
+
+
 
 ; GPIO_INIT offset values
 DIR:	.equ 0x400
@@ -607,6 +611,9 @@ m_equal:
 	ADD R0, R0, R1	;Combine
 	MOV R1, #0x0	; Reset R1 -> zero
 	MOVT R1, #0x0
+
+	; check if any of the blocks merged, if: set flag
+
 
 m_end:
 	POP {R2-R11}

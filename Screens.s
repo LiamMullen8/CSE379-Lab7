@@ -22,8 +22,17 @@
 	.global WIN_end
 	.global LOSE_end
 	.global TIMESCORE_prompt
+	.global time_position
+	.global score_position
 
-clear_screen:	.string 27,"[2J",27,"[1;1f",0
+
+clear_screen:	.string 27,"[2J",27,"[1;1f", 0
+
+time_position:	.string 27, "[1;23f", 0
+
+score_position:	.string 27, "[1;8f", 0
+
+TIMESCORE_prompt:	.string 27,"[1;1f",27,"[37mSCORE: ",27,"[1;17f",27,"[37mTIME: ",0xA,0xD,0x0
 
 start_menu:	  .string 27,"[2J", 27,"[5;1f", 27,"[45m",27,"[37;1m+==============================+",0xA,0xD
 		  							.string 27,"[37;1m+       WELCOME TO 2048        +",0xA,0xD

@@ -26,13 +26,19 @@
 	.global game_board
 	.global TIMESCORE_prompt
 	.global SCORE
+	.global SCORE_string
 	.global TIME
+	.global TIME_string
 	.global END_status
 	.global START_status
 	.global PAUSED_status
 	.global CHANGE_status
+
+	.global time_position
+	.global score_position
+
 	.global WIN_BLOCK
-	.global INCR
+
 
  	.global clear_game
 
@@ -55,6 +61,7 @@
  	.global move_downward
  	.global render_game_board
  	.global spawn_random_block
+ 	.global int2string
 
  	; Merge Pointers
 	.global merge_A
@@ -79,9 +86,14 @@ ptr_to_start_status:		.word START_status
 ptr_to_paused_status:		.word PAUSED_status
 ptr_to_change_status:		.word CHANGE_status
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
+
+ptr_to_time_position:		.word time_position
+ptr_to_score_position:		.word score_position
+
 ptr_to_score:				.word SCORE
+ptr_to_score_string:		.word SCORE_string
 ptr_to_time:				.word TIME
-ptr_to_accumulator:			.word INCR
+ptr_to_time_string:			.word TIME_string
 
 ; ptr to winning value block
 ptr_to_win_block: 	.word WIN_BLOCK
@@ -92,8 +104,6 @@ CHANGE_status:		.byte 0x00
 START_status:		.byte 0x00
 
 
-INCR:				.byte 0x00
-TI:					.byte 0x00
 ; Receive Interrupt Mask in UART Interrupt Mask Register
 RXIM:		.equ 0x10
 ; Recieve Interrupt Clear in UART Interrupt Clear Register
@@ -148,7 +158,6 @@ ptr_to_SQ13: 				.word SQ13
 ptr_to_SQ14: 				.word SQ14
 ptr_to_SQ15: 				.word SQ15
 
-ptr_to_TI:					.word TI
 ;;;------------------------------------------------------------------------------;;;
 ;;;----------------------------INTERRUPT HANDLERS--------------------------------;;;
 ;;;------------------------------------------------------------------------------;;;
@@ -533,22 +542,14 @@ UART0_Handler:
 	ORR R1, #RXIC
 	STR R1, [R0, #UARTICR]
 
+	;move accum
+	MOV R8, #0
 
 complete_movement_poll:
 
 	; check if accum == 4
-	LDR R0, ptr_to_accumulator
-	LDRB R1, [R0]
-
-	CMP R1, #4
+	CMP R8, #4
 	BEQ clear_merges
-
-	; check TI, if true: render movement, else: clear merges
-	LDR R0, ptr_to_TI
-	LDRB R1, [R0]
-
-	CMP R1, #1
-	BNE clear_merges
 
 render_movement:
 
@@ -567,41 +568,30 @@ render_movement:
 
 W_pressed:
 	BL move_upward
-
-	BL spawn_random_block
 	BL render_game_board
-
 	B increment_accumulator
 
 A_pressed:
 	BL move_left
-	BL spawn_random_block
 	BL render_game_board
 	B increment_accumulator
 
 S_pressed:
 	BL move_downward
-	BL spawn_random_block
 	BL render_game_board
 	B increment_accumulator
 
 D_pressed:
 	BL move_right
-	BL spawn_random_block
 	BL render_game_board
 	B increment_accumulator
 
 increment_accumulator:
-	LDR R0, ptr_to_accumulator
-	LDRB R1, [R0]
-	ADD R1, #1
-	STRB R1, [R0]
 
-	; reset TI
-	MOV R1, #0
-	STRB R1, [R0]
+	ADD R8, #1
 
 	B complete_movement_poll
+
 
 clear_merges:
 
@@ -661,31 +651,52 @@ clear_poll:
 	LDR R1, ptr_to_win_block
 	LDRH R1, [R1]
 
+	; board fill increment
+	MOV R7, #0
+
 check_win_poll:
 
 	; POP value of SQ
 	LDMIA SP!, {R0}
 	LDR R0, [R0]
 
+	CMP R0, #0
+	IT NE
+	ADDNE R7, #1
+
 	; if current SQ = win block
 	CMP R0, R1
 	BEQ WIN
+
+	;
+	CMP R7, #16
+	BEQ LOSE
 
 	; if iterated all SQs
 	CMP R2, #16
 	IT NE
 	ADDNE R2, #1
+
+
 	BNE check_win_poll
 
 
+
 uart_end:
+
+	BL spawn_random_block
+	BL render_game_board
 
 	POP {r0-r11, lr}
 	BX lr
 
 WIN:
-	B uart_end
+	POP {r0-r11, lr}
+	BX lr
 
+LOSE:
+	POP {r0-r11, lr}
+	BX lr
 
 ;;;------------------------------------------------------------------------------;;;
 Timer_Handler:
@@ -705,16 +716,32 @@ Timer_Handler:
 	ADD R1, #1
 	STR R1, [R0]
 
-	; increment INCs
-	LDR R0, ptr_to_accumulator
-	LDR R1, [R0]
-	ADD R1, #1
-	STR R1, [R0]
 
-	; toggle TI
-	MOV R1, #1
-	LDR R0, ptr_to_TI
-	STRB R1, [R0]
+
+
+	LDR R0, ptr_to_score
+	LDR R0, [R0]
+	LDR R1, ptr_to_score_string
+
+	BL int2string
+
+	LDR R0, ptr_to_score_position
+	BL output_string
+	LDR R0, ptr_to_score_string
+	BL output_string
+
+
+	LDR R0, ptr_to_time
+	LDR R0, [R0]
+	LDR R1, ptr_to_time_string
+
+	BL int2string
+
+	LDR R0, ptr_to_time_position
+	BL output_string
+	LDR R0, ptr_to_time_string
+	BL output_string
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Insert Logic here

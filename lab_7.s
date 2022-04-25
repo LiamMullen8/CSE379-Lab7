@@ -72,7 +72,9 @@
 	; meta
 	.global TIMESCORE_prompt
 	.global SCORE
+	.global SCORE_string
 	.global TIME
+	.global TIME_string
 	;.global END_status
 	;.global PAUSED_status
 	;.global CHANGE_status
@@ -80,13 +82,12 @@
 	.global position
 
 
-
-; top row show player's time and score
-TIMESCORE_prompt:	.string 27,"[1;1f",27,"[37mTIME: ",27,"[1;17f",27,"[37mSCORE: ",0xA,0xD,0x0
-
 ; track time and score for current game
 SCORE:				.word 0x00000000
+SCORE_string:		.string "    ",0
+
 TIME:				.word 0x00000000
+TIME_string:		.string "    ",0
 
 ; flags for checking in progress/ended
 ;END_status:			.byte 0x00
@@ -170,6 +171,9 @@ merge_H:		.word 0x00000000
 	.global spawn_random_block
 	.global render_game_board
 
+	.global time_position
+	.global score_position
+
 ptr_to_pause_menu:			.word pause_menu
 ptr_to_start_menu:			.word start_menu
 ptr_to_change_win_menu:		.word win_block_menu
@@ -182,8 +186,14 @@ ptr_to_lose:				.word LOSE_end
 ;ptr_to_change_status:		.word CHANGE_status
 ptr_to_start_status:		.word START_status
 ptr_to_timescore_prompt:	.word TIMESCORE_prompt
+
+ptr_to_score_position:		.word score_position
+ptr_to_time_position:		.word time_position
+
 ptr_to_score:				.word SCORE
+ptr_to_score_string:		.word SCORE_string
 ptr_to_time:				.word TIME
+ptr_to_time_string:			.word TIME_string
 
 ptr_to_block0:				.word block0
 ptr_to_block2:				.word block2
@@ -272,7 +282,7 @@ lab7:
 	LDR R0, ptr_to_clear_screen
 	BL output_string
 
-	BL clear_game
+	;BL clear_game
 
 	;; display starting screen
 ;	LDR R0, ptr_to_start_menu
@@ -285,9 +295,6 @@ lab7:
 	LDR R0, ptr_to_game_board
 	BL output_string
 
-
-;	BL spawn_random_block
-;	BL render_game_board
 
 
 ;-------Move Left------;
@@ -330,15 +337,18 @@ lab7:
 	STR R1, [R0]
 
 	BL render_game_board
+l:
+	b l
 
-	BL move_left
 
+	BL move_right
+	BL render_game_board
+	BL move_right
+	BL render_game_board
+	BL move_right
 	BL render_game_board
 
 
-
-l:
-	b l
 
 	MOV pc, lr
 ;;;--------------------------------------------------------------------------;;;
@@ -886,6 +896,14 @@ merge_ptrs:
 
 	STR R0, [R10] ;Store merged value in SQX into SQX
 	STR R1, [R11] ;Store merged value in SQY into SQY
+
+	; update score tracking
+	LDR R3, ptr_to_score
+	LDR R4, [R3]
+	ADD R4, R0
+	ADD R4, R1
+	STR R4, [R3]
+
 
 MRP_end:
 	POP {R4-R11, lr}

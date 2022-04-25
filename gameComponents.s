@@ -47,7 +47,7 @@ block1024: 	.string 27,"[41;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m1024 ",
 block2048: 	.string 27,"[40;1m",27,"[37m     ",27,"[1B",27,"[5D",27,"[37m2048 ",27,"[1B", 27,"[5D",27,"[37m     ",27,"[0m", 0x0
 
 ; size of game board is 4x4 blocks, with each block being 3x5
-game_board:	.string "+-----+-----+-----+-----+", 0xA, 0xD
+game_board:	.string 27, "[2;1f","+-----+-----+-----+-----+", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
 			.string "|     |     |     |     |", 0xA, 0xD
