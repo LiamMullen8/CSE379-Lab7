@@ -282,73 +282,56 @@ lab7:
 	LDR R0, ptr_to_clear_screen
 	BL output_string
 
-	;BL clear_game
+	;; reset game stats/trackers
+	BL clear_game
 
 	;; display starting screen
-;	LDR R0, ptr_to_start_menu
-;	BL output_string
-
-	;LDR R0, ptr_to_clear_screen
-	;BL output_string
-	LDR R0, ptr_to_timescore_prompt
+	LDR R0, ptr_to_start_menu
 	BL output_string
-	LDR R0, ptr_to_game_board
-	BL output_string
-
 
 
 ;-------Move Left------;
 	; Merge the block2 in Column 1 with the block2 in Column 2
 
 	;---ROW 1---;
-	LDR R0, ptr_to_SQ0 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
+;	LDR R0, ptr_to_SQ0 ;First block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
 
-	LDR R0, ptr_to_SQ1 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
+;	LDR R0, ptr_to_SQ1 ;Second block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
+;
+;	;---ROW 2---;
+;	LDR R0, ptr_to_SQ4 ;First block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
 
-	;---ROW 2---;
-	LDR R0, ptr_to_SQ4 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ5 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 3---;
-	LDR R0, ptr_to_SQ8 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ9 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	;---ROW 4---;
-	LDR R0, ptr_to_SQ12 ;First block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	LDR R0, ptr_to_SQ13 ;Second block2
-	MOV R1, #0x2
-	STR R1, [R0]
-
-	BL render_game_board
+;	LDR R0, ptr_to_SQ5 ;Second block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
+;
+;	;---ROW 3---;
+;	LDR R0, ptr_to_SQ8 ;First block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
+;
+;	LDR R0, ptr_to_SQ9 ;Second block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
+;
+;	;---ROW 4---;
+;	LDR R0, ptr_to_SQ12 ;First block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
+;
+;	LDR R0, ptr_to_SQ13 ;Second block2
+;	MOV R1, #0x2
+;	STR R1, [R0]
+;
+;	BL render_game_board
 l:
 	b l
-
-
-	BL move_right
-	BL render_game_board
-	BL move_right
-	BL render_game_board
-	BL move_right
-	BL render_game_board
-
-
 
 	MOV pc, lr
 ;;;--------------------------------------------------------------------------;;;

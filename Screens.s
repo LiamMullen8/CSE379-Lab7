@@ -38,6 +38,7 @@ start_menu:	  .string 27,"[2J", 27,"[5;1f", 27,"[45m",27,"[37;1m+===============
 		  							.string 27,"[37;1m+       WELCOME TO 2048        +",0xA,0xD
 									.string 27,"[37;1m+                              +",0xA,0xD
 									.string 27,"[37;1m+  SW1 - START GAME            +",0xA,0xD
+									.string 27,"[37;1m+      - PAUSE GAME            +",0xA,0xD
 									.string 27,"[37;1m+                              +",0xA,0xD
 									.string 27,"[37;1m+  HOW TO PLAY:                +",0xA,0xD
 									.string 27,"[37;1m+  USE W,A,S,D TO SLIDE BLOCKS +",0xA,0xD
@@ -45,7 +46,6 @@ start_menu:	  .string 27,"[2J", 27,"[5;1f", 27,"[45m",27,"[37;1m+===============
 									.string 27,"[37;1m+                              +",0xA,0xD
 									.string 27,"[37;1m+  made by Liam Mullen         +",0xA,0xD
 									.string 27,"[37;1m+          Marcos DeLaOsaCruz  +",0xA,0xD
-									.string 27,"[37;1m+                              +",0xA,0xD
 									.string 27,"[37;1m+          CSE379 Spring 2022  +",0xA,0xD
 									.string 27,"[37;1m+==============================+",27, "[0m", 0
 

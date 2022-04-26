@@ -39,8 +39,13 @@
 
 	.global WIN_BLOCK
 
-
  	.global clear_game
+
+END_status:			.byte 0x00
+PAUSED_status:		.byte 0x00
+CHANGE_status:		.byte 0x00
+START_status:		.byte 0x00
+
 
 ;;-----------------------------------------------------------;;
  	.text
@@ -97,11 +102,6 @@ ptr_to_time_string:			.word TIME_string
 
 ; ptr to winning value block
 ptr_to_win_block: 	.word WIN_BLOCK
-
-END_status:			.byte 0x00
-PAUSED_status:		.byte 0x00
-CHANGE_status:		.byte 0x00
-START_status:		.byte 0x00
 
 
 ; Receive Interrupt Mask in UART Interrupt Mask Register
@@ -207,14 +207,21 @@ Switch_Handler:
 
 ;;-------------------------------------------------------------;;
 ; If playing game, pause the game
-; If already paused, this will have no effect
+; If already paused, this has no effect
 ; if in change win menu, go back to pause menu
+; If game end, this has no effect
 SW1_pressed:
+
+	;check if game in end status
+	LDR R1, ptr_to_end_status
+	LDRB R1, [R1]
+	; if game ended, do nothing
+	CMP R1, #1
+	BEQ switch_end
 
 	;check if game started
 	LDR R1, ptr_to_start_status
 	LDRB R1, [R1]
-
 	; if game not started, start it
 	CMP R1, #0
 	BEQ sw1_start
@@ -222,7 +229,6 @@ SW1_pressed:
 	;check menu status
 	LDR R1, ptr_to_paused_status
 	LDRB R1, [R1]
-
 	; if not paused, just pause
 	CMP R1, #0
 	BEQ sw1_pause
@@ -230,7 +236,6 @@ SW1_pressed:
 	; already paused, check win
 	LDR R1, ptr_to_change_status
 	LDRB R1, [R1]
-
 	CMP R1, #1
 	BEQ sw1_change_win
 
@@ -239,7 +244,17 @@ SW1_pressed:
 
 sw1_start:
 
-	BL clear_game
+	;BL clear_game
+
+	LDR R0, ptr_to_clear_screen
+	BL output_string
+	LDR R0, ptr_to_timescore_prompt
+	BL output_string
+	LDR R0, ptr_to_game_board
+	BL output_string
+
+	BL spawn_random_block
+	BL render_game_board
 
 	;set started status
 	LDR R1, ptr_to_start_status
@@ -299,10 +314,23 @@ sw1_change_win:
 ; If change win menu, update win block to 2048
 SW2_pressed:
 
+	;check end status
+	LDR R1, ptr_to_start_status
+	LDRB R1, [R1]
+	; if end status, quit game/return to start menu
+	CMP R1, #1
+	BEQ sw2_quit
+
+	;check started status
+	LDR R1, ptr_to_start_status
+	LDRB R1, [R1]
+	; if not started, do nothing
+	CMP R1, #0
+	BEQ switch_end
+
 	;check pause status
 	LDR R1, ptr_to_paused_status
 	LDRB R1, [R1]
-
 	; if not paused, do nothing
 	CMP R1, #0
 	BEQ switch_end
@@ -325,7 +353,8 @@ sw2_quit:
 	BL clear_game
 
 	; display start menu
-	; TODO
+	LDR R0, ptr_to_start_menu
+	BL output_string
 
 	B switch_end
 
@@ -354,10 +383,23 @@ sw2_change_win:
 ; If change win menu, update win block to 1024
 SW3_pressed:
 
+	; check end status
+	LDR R1, ptr_to_end_status
+	LDRB R1, [R1]
+	; if end, restart game
+	CMP R1, #0
+	BEQ switch_end
+
+	;check started status
+	LDR R1, ptr_to_start_status
+	LDRB R1, [R1]
+	; if not started, do nothing
+	CMP R1, #0
+	BEQ switch_end
+
 	;check pause status
 	LDR R1, ptr_to_paused_status
 	LDRB R1, [R1]
-
 	; if not paused, do nothing
 	CMP R1, #0
 	BEQ switch_end
@@ -370,7 +412,7 @@ SW3_pressed:
 	CMP R1, #1
 	BEQ sw3_change_win
 
-	; if paused, and not in change win menu, sw2 quits game
+	; if paused, and not in change win menu, sw3 restarts game
 	B sw3_restart
 
 
@@ -407,10 +449,23 @@ sw3_change_win:
 ; If change win menu, update win block to 512
 SW4_pressed:
 
+	; check end status
+	LDR R1, ptr_to_end_status
+	LDRB R1, [R1]
+	; if end, do nothing
+	CMP R1, #1
+	BEQ switch_end
+
+	;check started status
+	LDR R1, ptr_to_start_status
+	LDRB R1, [R1]
+	; if not started, do nothing
+	CMP R1, #0
+	BEQ switch_end
+
 	;check pause status
 	LDR R1, ptr_to_paused_status
 	LDRB R1, [R1]
-
 	; if not paused, do nothing
 	CMP R1, #0
 	BEQ switch_end
@@ -427,17 +482,18 @@ SW4_pressed:
 	B sw4_resume
 
 sw4_resume:
-
 	; clear pause menu
-	LDR R1, ptr_to_clear_screen
+	LDR R0, ptr_to_clear_screen
 	BL output_string
 
 	; rerender current board,time,score
-	LDR R1, ptr_to_timescore_prompt
+	LDR R0, ptr_to_timescore_prompt
 	BL output_string
 
-	LDR R1, ptr_to_game_board
+	LDR R0, ptr_to_game_board
 	BL output_string
+
+	BL render_game_board
 
 	; clear paused flag
 	LDR R0, ptr_to_paused_status
@@ -477,10 +533,24 @@ sw4_change_win:
 ; If change win menu, update win block to 256
 SW5_pressed:
 
+	; check end status
+	LDR R1, ptr_to_end_status
+	LDRB R1, [R1]
+	; if end, do nothing
+	CMP R1, #1
+	BEQ switch_end
+
+
+	;check started status
+	LDR R1, ptr_to_start_status
+	LDRB R1, [R1]
+	; if not started, do nothing
+	CMP R1, #0
+	BEQ switch_end
+
 	;check pause status
 	LDR R1, ptr_to_paused_status
 	LDRB R1, [R1]
-
 	; if not paused, do nothing
 	CMP R1, #0
 	BEQ switch_end
@@ -542,9 +612,36 @@ UART0_Handler:
 	ORR R1, #RXIC
 	STR R1, [R0, #UARTICR]
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; GAME STATUS CHECKS ;
+
+	; check end status
+	LDR R1, ptr_to_end_status
+	LDRB R1, [R1]
+	; if end, do nothing
+	CMP R1, #1
+	BEQ uart_ignore
+
+	;check started status
+	LDR R1, ptr_to_start_status
+	LDRB R1, [R1]
+	; if not started, do nothing
+	CMP R1, #0
+	BEQ uart_ignore
+
+	;check pause status
+	LDR R1, ptr_to_paused_status
+	LDRB R1, [R1]
+	; if paused, do nothing
+	CMP R1, #1
+	BEQ uart_ignore
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; BLOCK MOVEMENT ;
+
 	;move accum
 	MOV R8, #0
-
 complete_movement_poll:
 
 	; check if accum == 4
@@ -587,10 +684,9 @@ D_pressed:
 	B increment_accumulator
 
 increment_accumulator:
-
 	ADD R8, #1
-
 	B complete_movement_poll
+
 
 
 clear_merges:
@@ -660,6 +756,7 @@ check_win_poll:
 	LDMIA SP!, {R0}
 	LDR R0, [R0]
 
+	; count how many non-zero blocks
 	CMP R0, #0
 	IT NE
 	ADDNE R7, #1
@@ -668,7 +765,7 @@ check_win_poll:
 	CMP R0, R1
 	BEQ WIN
 
-	;
+	; if all blocks are filled, lose
 	CMP R7, #16
 	BEQ LOSE
 
@@ -677,24 +774,63 @@ check_win_poll:
 	IT NE
 	ADDNE R2, #1
 
-
 	BNE check_win_poll
 
-
-
+;;-------------------------------------------------------------;;
+;; endpoint for UART after handling
 uart_end:
 
 	BL spawn_random_block
 	BL render_game_board
 
+uart_ignore:
 	POP {r0-r11, lr}
 	BX lr
+
+
 
 WIN:
-	POP {r0-r11, lr}
-	BX lr
+	; Display win screen
+	LDR R0, ptr_to_win
+	BL output_string
+
+; pop the remaining SQs from the stack
+clean_stack:
+	CMP R7, #16
+	ITT NE
+	LDMIANE SP!, {R0}	; lmao
+	ADDNE R7, #1
+	BEQ clean_stack
+	B game_end
 
 LOSE:
+
+	; Display lose screen
+	LDR R0, ptr_to_lose
+	BL output_string
+
+game_end:
+	; disable timer
+	MOV R0, #0x0000
+	MOVT R0, #0x4003
+	LDR R1, [R0, #0xC]
+	BIC R1, #0x1
+	STR R1, [R0, #0xC]
+
+	; set End game status
+	MOV R1, #1
+	LDR R0, ptr_to_end_status
+	STRB R1, [R0]
+
+	; clear in game statuses
+	MOV R1, #0
+	LDR R0, ptr_to_paused_status
+	STRB R1, [R0]
+	LDR R0, ptr_to_start_status
+	STRB R1, [R0]
+	LDR R0, ptr_to_change_status
+	STRB R1, [R0]
+
 	POP {r0-r11, lr}
 	BX lr
 
@@ -702,10 +838,9 @@ LOSE:
 Timer_Handler:
 	PUSH {r0-r11, lr}
 
+	; set TATOCINT to clear interrupt
 	MOV R0, #0x0000
 	MOVT R0, #0x4003
-
-	; set TATOCINT to clear interrupt
 	LDR R1, [R0, #GPTMICR]
 	ORR R1, #0x1
 	STR R1, [R0, #GPTMICR]
@@ -716,9 +851,8 @@ Timer_Handler:
 	ADD R1, #1
 	STR R1, [R0]
 
-
-
-
+	; re-print time and score at header
+	;---;
 	LDR R0, ptr_to_score
 	LDR R0, [R0]
 	LDR R1, ptr_to_score_string
@@ -730,7 +864,7 @@ Timer_Handler:
 	LDR R0, ptr_to_score_string
 	BL output_string
 
-
+	;---;
 	LDR R0, ptr_to_time
 	LDR R0, [R0]
 	LDR R1, ptr_to_time_string
@@ -742,14 +876,10 @@ Timer_Handler:
 	LDR R0, ptr_to_time_string
 	BL output_string
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Insert Logic here
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 timer_end:
 	POP {r0-r11, lr}
  	BX lr ; Return
 
 ;;;------------------------------------------------------------------------------;;;
+; END OF FILE ;
 .end

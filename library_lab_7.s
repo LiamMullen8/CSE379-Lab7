@@ -415,12 +415,12 @@ timer_interrupt_init:
 	STR R1, [R0, #EN0]
 
 	; re-enable timer
-	MOV R0, #0x0000
-	MOVT R0, #0x4003
+	;MOV R0, #0x0000
+	;MOVT R0, #0x4003
 
-	LDR R1, [R0, #GPTMCTL]
-	ORR R1, #0x1
-	STR R1, [R0, #GPTMCTL]
+	;LDR R1, [R0, #GPTMCTL]
+	;ORR R1, #0x1
+	;STR R1, [R0, #GPTMCTL]
 
 	POP{R0-R2, lr}
 	MOV pc, lr
@@ -632,7 +632,6 @@ read_from_push_btns:
 
 	;isolate Pins 0-3
     AND R0, #0x0F
-
 
     POP {r1, lr}
     MOV pc, lr
