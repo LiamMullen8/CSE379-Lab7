@@ -127,7 +127,15 @@ A:			.equ 0x61
 S:			.equ 0x73
 D:			.equ 0x64
 
-;ptrs to meta data
+; RGB LED Color Encoding
+RED:		.equ 0x2
+PURPLE:		.equ 0x6
+GREEN:		.equ 0x8
+YELLOW:		.equ 0xA
+CYAN:		.equ 0xC
+WHITE:		.equ 0xE
+
+; ptrs to meta data
 ptr_to_merge_A:		.word merge_A
 ptr_to_merge_B:		.word merge_B
 ptr_to_merge_C:		.word merge_C
@@ -195,15 +203,19 @@ Switch_Handler:
 	BEQ SW1_pressed
 
 	BL read_from_push_btns
-	CMP R0, #0x8		;0xE, possible that its 1s comp bc of pullup resistors
+	NOP
+	NOP
+	NOP
+	CMP R0, #0x8
 	BEQ SW2_pressed
-	CMP R0, #0x4		;0xD
+	CMP R0, #0x4
 	BEQ SW3_pressed
-	CMP R0, #0x2		;0xB
+	CMP R0, #0x2
 	BEQ SW4_pressed
-	CMP R0, #0x1		;0x7
+	CMP R0, #0x1
 	BEQ SW5_pressed
 
+	B switch_end
 
 ;;-------------------------------------------------------------;;
 ; If playing game, pause the game
@@ -260,6 +272,24 @@ sw1_start:
 	LDR R1, ptr_to_start_status
 	MOV R0, #0x1
 	STRB R0, [R1]
+
+	; set in game RGB LED
+	LDR R1, ptr_to_win_block
+	LDR R1, [R1]
+	CMP R1, #2048
+	IT EQ
+	MOVEQ R0, #YELLOW
+	CMP R1, #1024
+	IT EQ
+	MOVEQ R0, #PURPLE
+	CMP R1, #512
+	IT EQ
+	MOVEQ R0, #WHITE
+	CMP R1, #256
+	IT EQ
+	MOVEQ R0, #CYAN
+
+	BL illuminate_RGB_LED
 
 	; enable timer
 	MOV R0, #0x0000
@@ -387,8 +417,8 @@ SW3_pressed:
 	LDR R1, ptr_to_end_status
 	LDRB R1, [R1]
 	; if end, restart game
-	CMP R1, #0
-	BEQ switch_end
+	CMP R1, #1
+	BEQ sw3_restart
 
 	;check started status
 	LDR R1, ptr_to_start_status
@@ -421,9 +451,15 @@ sw3_restart:
 	; zero the timer, score, and game board
 	BL clear_game
 
-	; display start menu
+	MOV R1, #0
+	LDR R0, ptr_to_end_status
+	STRB R1, [R0]
+	LDR R0, ptr_to_paused_status
+	STRB R1, [R0]
 
-	B switch_end
+	; display start menu
+	B sw1_start
+
 
 sw3_change_win:
 
@@ -500,6 +536,24 @@ sw4_resume:
 	MOV R1, #0
 	STRB R1, [R0]
 
+	; set in game RGB LED
+	LDR R1, ptr_to_win_block
+	LDR R1, [R1]
+	CMP R1, #2048
+	IT EQ
+	MOVEQ R0, #YELLOW
+	CMP R1, #1024
+	IT EQ
+	MOVEQ R0, #PURPLE
+	CMP R1, #512
+	IT EQ
+	MOVEQ R0, #WHITE
+	CMP R1, #256
+	IT EQ
+	MOVEQ R0, #CYAN
+
+	BL illuminate_RGB_LED
+
 	; re-enable timer
 	MOV R0, #0x0000
 	MOVT R0, #0x4003
@@ -558,10 +612,9 @@ SW5_pressed:
 	; if paused, check win
 	LDR R1, ptr_to_change_status
 	LDRB R2, [R1]
-
 	; if in change win, update block to 256
 	CMP R2, #1
-	BEQ sw2_change_win
+	BEQ sw5_change_win
 
 	; else, go to change win menu
 sw5_change_menu:
