@@ -199,13 +199,13 @@ Switch_Handler:
 	; check which switch was pressed
 
 	BL read_tiva_push_button
+	NOP
+	NOP
+	NOP
 	CMP R0, #0x0
 	BEQ SW1_pressed
 
 	BL read_from_push_btns
-	NOP
-	NOP
-	NOP
 	CMP R0, #0x8
 	BEQ SW2_pressed
 	CMP R0, #0x4
@@ -256,7 +256,7 @@ SW1_pressed:
 
 sw1_start:
 
-	;BL clear_game
+	BL clear_game
 
 	LDR R0, ptr_to_clear_screen
 	BL output_string
@@ -345,7 +345,7 @@ sw1_change_win:
 SW2_pressed:
 
 	;check end status
-	LDR R1, ptr_to_start_status
+	LDR R1, ptr_to_end_status
 	LDRB R1, [R1]
 	; if end status, quit game/return to start menu
 	CMP R1, #1
@@ -368,7 +368,6 @@ SW2_pressed:
 	; if paused, check win
 	LDR R1, ptr_to_change_status
 	LDRB R1, [R1]
-
 	; if in change win, update block to 2048
 	CMP R1, #1
 	BEQ sw2_change_win
@@ -381,6 +380,15 @@ sw2_quit:
 
 	; zero the timer, score, and game board
 	BL clear_game
+
+	; clear statuses
+	MOV R1, #0
+	LDR R0, ptr_to_start_status
+	STRB R1, [R0]
+	LDR R0, ptr_to_end_status
+	STRB R1, [R0]
+	LDR R0, ptr_to_paused_status
+	STRB R1, [R0]
 
 	; display start menu
 	LDR R0, ptr_to_start_menu
@@ -847,6 +855,9 @@ WIN:
 	LDR R0, ptr_to_win
 	BL output_string
 
+	MOV R0, #GREEN
+	BL illuminate_RGB_LED
+
 ; pop the remaining SQs from the stack
 clean_stack:
 	CMP R7, #16
@@ -861,6 +872,9 @@ LOSE:
 	; Display lose screen
 	LDR R0, ptr_to_lose
 	BL output_string
+
+	MOV R0, #RED
+	BL illuminate_RGB_LED
 
 game_end:
 	; disable timer

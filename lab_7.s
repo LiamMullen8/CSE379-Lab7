@@ -266,9 +266,9 @@ ptr_to_win_block: .word WIN_BLOCK
 
 
 ;;;------------------------------------------------------------------------------;;;
-
+;;;------------------------------------------------------------------------------;;;
 lab7:
-	PUSH {lr} ; Store lr to stack
+	PUSH {lr}
 
 	;;; INITIALIZATION ;;;
 	bl uart_init
@@ -289,47 +289,7 @@ lab7:
 	LDR R0, ptr_to_start_menu
 	BL output_string
 
-
-;-------Move Left------;
-	; Merge the block2 in Column 1 with the block2 in Column 2
-
-	;---ROW 1---;
-;	LDR R0, ptr_to_SQ0 ;First block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-
-;	LDR R0, ptr_to_SQ1 ;Second block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-;
-;	;---ROW 2---;
-;	LDR R0, ptr_to_SQ4 ;First block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-
-;	LDR R0, ptr_to_SQ5 ;Second block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-;
-;	;---ROW 3---;
-;	LDR R0, ptr_to_SQ8 ;First block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-;
-;	LDR R0, ptr_to_SQ9 ;Second block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-;
-;	;---ROW 4---;
-;	LDR R0, ptr_to_SQ12 ;First block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-;
-;	LDR R0, ptr_to_SQ13 ;Second block2
-;	MOV R1, #0x2
-;	STR R1, [R0]
-;
-;	BL render_game_board
+; infinite loop for thread mode
 l:
 	b l
 
@@ -345,43 +305,60 @@ clear_game:
 
 	; new timer
 	LDR R1, ptr_to_time
-	STRB R0, [R1]
+	STR R0, [R1]
 	; new score
 	LDR R1, ptr_to_score
-	STRB R0, [R1]
+	STR R0, [R1]
 	; clear SQ's values
 	LDR R2, ptr_to_SQ0
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ1
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ2
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ3
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ4
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ5
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ6
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ7
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ8
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ9
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ10
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ11
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ12
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ13
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ14
-	STRB R0, [R2]
+	STRH R0, [R2]
 	LDR R2, ptr_to_SQ15
-	STRB R0, [R2]
+	STRH R0, [R2]
+	; clean up any merge pointers
+	LDR R2, ptr_to_merge_A
+	STR R0, [R2]
+	LDR R2, ptr_to_merge_B
+	STR R0, [R2]
+	LDR R2, ptr_to_merge_C
+	STR R0, [R2]
+	LDR R2, ptr_to_merge_D
+	STR R0, [R2]
+	LDR R2, ptr_to_merge_E
+	STR R0, [R2]
+	LDR R2, ptr_to_merge_F
+	STR R0, [R2]
+	LDR R2, ptr_to_merge_G
+	STR R0, [R2]
+	LDR R2, ptr_to_merge_H
+	STR R0, [R2]
 
 	POP {r0-r2, lr}
 	MOV pc, lr
@@ -862,12 +839,10 @@ merge_ptrs:
 	;4A Check if @ is null
 	LDR R4, [R2]
 
-	;### first time using If-Then might be buggy ###
 	CMP R4, #0x0
 	ITE NE
 	STRNE R0, [R3] ;5A Set @ = SQX (first capped merge of row)
 	STREQ R0, [R2] ;5B Set % = SQX (Second capped merge of row)
-	;### first time using If-Then might be buggy ###
 
 	;6 set up and execute the merge
 	MOV R10, R0	;Preserve ptr_to_SQX
@@ -1032,7 +1007,7 @@ get_position:
 get_block_value:
 
 	; if position already occupied, reroll
-	LDRB R3, [R2]
+	LDR R3, [R2]
 	CMP R3, #0
 	BNE get_random
 
