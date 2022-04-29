@@ -261,8 +261,8 @@ sw1_start:
 	LDR R0, ptr_to_game_board
 	BL output_string
 
+	; spawn one block
 	BL spawn_random_block
-	BL render_game_board
 
 	;set started status
 	LDR R1, ptr_to_start_status
@@ -293,6 +293,11 @@ sw1_start:
 	LDR R1, [R0, #0xC]
 	ORR R1, #0x1
 	STR R1, [R0, #0xC]
+
+	; spawn second block after timer has started in order to get new seed
+	BL spawn_random_block
+
+	BL render_game_board
 
 	B switch_end
 
@@ -857,10 +862,10 @@ WIN:
 ; pop the remaining SQs from the stack
 clean_stack:
 	CMP R7, #16
-	ITT NE
+	ITTT NE
 	LDMIANE SP!, {R0}	; lmao
 	ADDNE R7, #1
-	BEQ clean_stack
+	BNE clean_stack
 	B game_end
 
 LOSE:
