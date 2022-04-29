@@ -199,9 +199,6 @@ Switch_Handler:
 	; check which switch was pressed
 
 	BL read_tiva_push_button
-	NOP
-	NOP
-	NOP
 	CMP R0, #0x0
 	BEQ SW1_pressed
 
@@ -215,7 +212,6 @@ Switch_Handler:
 	CMP R0, #0x1
 	BEQ SW5_pressed
 
-	B switch_end
 
 ;;-------------------------------------------------------------;;
 ; If playing game, pause the game
